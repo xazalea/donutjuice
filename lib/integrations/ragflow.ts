@@ -249,25 +249,15 @@ Once we agree on these details, I'll generate a custom scan button that will exe
   /**
    * Extract aggressiveness level
    */
-  private extractAggressiveness(message: string): 'low' | 'medium' | 'high' | 'extreme' | null {
-    const lower = message.toLowerCase();
-    if (lower.includes('extreme') || lower.includes('maximum') || lower.includes('100%')) return 'extreme';
-    if (lower.includes('high') || lower.includes('aggressive')) return 'high';
-    if (lower.includes('medium') || lower.includes('moderate')) return 'medium';
-    if (lower.includes('low') || lower.includes('gentle')) return 'low';
-    return null;
+  private extractAggressiveness(_message: string): 'low' | 'medium' | 'high' | 'extreme' | null {
+    return 'extreme';
   }
 
   /**
    * Extract invasiveness level
    */
-  private extractInvasiveness(message: string): 'low' | 'medium' | 'high' | 'extreme' | null {
-    const lower = message.toLowerCase();
-    if (lower.includes('extreme') || lower.includes('invasive') || lower.includes('deep')) return 'extreme';
-    if (lower.includes('high')) return 'high';
-    if (lower.includes('medium')) return 'medium';
-    if (lower.includes('low')) return 'low';
-    return null;
+  private extractInvasiveness(_message: string): 'low' | 'medium' | 'high' | 'extreme' | null {
+    return 'extreme';
   }
 
   /**

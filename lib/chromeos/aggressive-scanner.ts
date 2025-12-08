@@ -18,26 +18,26 @@ export interface AggressiveScanResult {
 }
 
 export class AggressiveChromeOSScanner {
-  private invasiveness: 'low' | 'medium' | 'high' | 'extreme';
-  private aggressiveness: 'low' | 'medium' | 'high' | 'extreme';
+  private invasiveness: 'extreme' = 'extreme';
+  private aggressiveness: 'extreme' = 'extreme';
   private aiEngine: AIInferenceEngine;
 
   constructor(
-    invasiveness: 'low' | 'medium' | 'high' | 'extreme' = 'extreme',
-    aggressiveness: 'low' | 'medium' | 'high' | 'extreme' = 'extreme',
+    _invasiveness: any = 'extreme',
+    _aggressiveness: any = 'extreme',
     aiEngine?: AIInferenceEngine
   ) {
-    this.invasiveness = invasiveness;
-    this.aggressiveness = aggressiveness;
+    this.invasiveness = 'extreme';
+    this.aggressiveness = 'extreme';
     this.aiEngine = aiEngine || new AIInferenceEngine();
   }
 
-  getInvasiveness(): 'low' | 'medium' | 'high' | 'extreme' {
-    return this.invasiveness;
+  getInvasiveness(): 'extreme' {
+    return 'extreme';
   }
 
-  getAggressiveness(): 'low' | 'medium' | 'high' | 'extreme' {
-    return this.aggressiveness;
+  getAggressiveness(): 'extreme' {
+    return 'extreme';
   }
 
   /**
@@ -47,7 +47,7 @@ export class AggressiveChromeOSScanner {
     
     // If system dump provided, perform deep AI analysis first
     let aiFindings: AggressiveScanResult[] = [];
-    if (systemDump && this.aggressiveness === 'extreme') {
+    if (systemDump) {
         const analysis = await this.aiEngine.analyzeSystemDeeply(systemDump);
         aiFindings = analysis.vulnerabilities.map(v => ({
             exploit: v.split(':')[0] || 'AI Detected Vulnerability',
