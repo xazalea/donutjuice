@@ -5,7 +5,12 @@ A comprehensive security research framework for ChromeOS vulnerability assessmen
 ## Features
 
 ### 🚀 AI-Powered Conversation Scanner
-- **Conversational Interface**: Chat with donut-2.5 to plan custom scans
+- **Multi-Model Support**: Choose from donut-2.5 (default), Llama-2-70b, Mixtral-8x7B, DeepSeek-V2.5, Qwen2.5-72B
+- **Automatic Model Switching**: If one AI refuses, automatically switches to a more relaxed model
+- **Memory Persistence**: OpenMemory ensures conversation context persists across model switches
+- **Advanced Reasoning**: OpenReasoning provides intelligent multi-step reasoning
+- **Auto-Switch Toggle**: Enable/disable automatic model switching
+- **Conversational Interface**: Chat with AI to plan custom scans
 - **Auto-Analysis**: Automatic vulnerability analysis on page load
 - **Custom Scan Plans**: AI creates tailored scan plans based on your requirements
 - **100% Coverage**: Aggressive, invasive scanning designed to find ALL exploits
@@ -88,6 +93,15 @@ npm run build
 
 ## Enhanced Integrations
 
+### DeepInfra Wrapper
+- **Multiple AI Models**: Access to donut-2.5, Llama-2-70b, Mixtral-8x7B, DeepSeek-V2.5, Qwen2.5-72B
+- **Automatic Model Switching**: Seamlessly switches to more relaxed models if current model refuses
+- **OpenAI-Compatible API**: Drop-in replacement for OpenAI API
+- **Free & Unlimited**: Access through public proxy rotation
+- **Memory Persistence**: OpenMemory ensures context persists across model switches
+- **Advanced Reasoning**: OpenReasoning provides multi-step reasoning capabilities
+- Based on: https://github.com/metimol/deepinfra-wrapper
+
 ### RAGFlow
 - **Advanced RAG engine** for intelligent exploit research
 - Conversational AI interface for custom scan planning
@@ -102,17 +116,21 @@ npm run build
 - Based on: https://github.com/coleam00/mcp-crawl4ai-rag
 
 ### OpenMemory
+- **Cross-Model Memory**: Memory persists across model switches
 - Enhanced memory management for exploit findings
 - Intelligent memory storage and retrieval
 - Tag-based memory organization
 - Automatic importance scoring
+- Conversation context preservation
 - Based on: https://github.com/CaviraOSS/OpenMemory
 
 ### OpenReason
+- **Integrated Reasoning**: Automatically used for exploit analysis
 - Advanced reasoning capabilities for exploit analysis
 - Multi-step reasoning chains
 - Exploit feasibility assessment
 - Attack surface analysis
+- Reasoning stored in memory for future reference
 - Based on: https://github.com/CaviraOSS/OpenReason
 
 ## Unenrollment Exploit Detection
