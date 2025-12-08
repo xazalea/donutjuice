@@ -12,6 +12,8 @@ export function AIConversationScanner() {
   const [message, setMessage] = useState('')
   const [scanning, setScanning] = useState(false)
   const [scanResults, setScanResults] = useState<any[]>([])
+  const [evolutionCycle, setEvolutionCycle] = useState(0)
+  const [evolutionMessage, setEvolutionMessage] = useState('')
   const [scanPlan, setScanPlan] = useState<ScanPlan | null>(null)
   const [autoAnalysis, setAutoAnalysis] = useState<any>(null)
   const [currentModel, setCurrentModel] = useState<DeepInfraModel>(modelManager.getCurrentModel())
@@ -126,14 +128,20 @@ export function AIConversationScanner() {
     try {
       const scanner = new AggressiveChromeOSScanner(
         scanPlan.invasiveness,
-        scanPlan.aggressiveness
+        scanPlan.aggressiveness,
+        undefined, // Default AI Engine
+        modelManager.getOpenMemory(),
+        modelManager.getOpenReason()
       )
 
-      const results = await scanner.scanComprehensive(scanPlan.target, systemDump)
+      const results = await scanner.scanComprehensive(scanPlan.target, systemDump, (cycle, message) => {
+        setEvolutionCycle(cycle)
+        setEvolutionMessage(message)
+      })
       setScanResults(results)
 
       // Add scan completion message
-      ragflow.addMessage('assistant', `Scan complete! Found ${results.length} exploits with ${results.filter(r => r.severity === 'critical').length} critical vulnerabilities.`)
+      ragflow.addMessage('assistant', `Scan complete! Found ${results.length} exploits with ${results.filter(r => r.severity === 'critical').length} critical vulnerabilities across ${evolutionCycle} evolution cycles.`)
     } catch (error) {
       console.error('Scan error:', error)
       ragflow.addMessage('assistant', `Scan encountered an error: ${(error as Error).message}`)
@@ -268,14 +276,34 @@ export function AIConversationScanner() {
         </div>
       </div>
 
+      {scanning && (
+        <div className="evolution-status">
+          <div className="evolution-spinner"></div>
+          <div className="evolution-info">
+            <h4>🧬 Evolution Cycle {evolutionCycle}</h4>
+            <p>{evolutionMessage}</p>
+            <div className="rage-meter">
+              <div 
+                className="rage-fill" 
+                style={{ width: `${Math.min(evolutionCycle * 20, 100)}%` }}
+              ></div>
+            </div>
+            <span className="rage-label">AI Invigoration Level</span>
+          </div>
+        </div>
+      )}
+
       {scanResults.length > 0 && (
         <div className="scan-results">
           <h3>🔥 Aggressive Scan Results ({scanResults.length} exploits found)</h3>
           <div className="results-grid">
             {scanResults.map((result, index) => (
-              <div key={index} className={`result-card severity-${result.severity}`}>
+              <div key={index} className={`result-card severity-${result.severity} ${result.type === 'ai-evolved' ? 'evolved-result' : ''}`}>
                 <div className="result-header">
-                  <span className="result-exploit">{result.exploit}</span>
+                  <span className="result-exploit">
+                    {result.type === 'ai-evolved' && <span className="evolved-badge">🧬 EVOLVED</span>}
+                    {result.exploit}
+                  </span>
                   <span className={`severity-badge severity-${result.severity}`}>
                     {result.severity}
                   </span>

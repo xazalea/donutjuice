@@ -263,5 +263,19 @@ export class ModelManager {
   resetToDefault(): void {
     this.currentModel = this.deepinfra.getDefaultModel();
   }
+
+  /**
+   * Get OpenMemory instance
+   */
+  getOpenMemory(): OpenMemory {
+    return this.memory;
+  }
+
+  /**
+   * Get OpenReason instance
+   */
+  getOpenReason(): OpenReason {
+    return this.reasoner;
+  }
 }
 

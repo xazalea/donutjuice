@@ -5,6 +5,8 @@
  */
 
 import { AIInferenceEngine } from '@lib/ai/inference';
+import { OpenMemory } from '@lib/integrations/openmemory';
+import { OpenReason } from '@lib/integrations/openreason';
 
 export interface AggressiveScanResult {
   exploit: string;
@@ -15,21 +17,29 @@ export interface AggressiveScanResult {
   payload?: string;
   evidence: string[];
   invasiveness: 'low' | 'medium' | 'high' | 'extreme';
+  cycle?: number; // Added to track evolution cycle
 }
 
 export class AggressiveChromeOSScanner {
-  private invasiveness: 'extreme' = 'extreme';
-  private aggressiveness: 'extreme' = 'extreme';
+  // private invasiveness: 'extreme' = 'extreme';
+  // private aggressiveness: 'extreme' = 'extreme';
   private aiEngine: AIInferenceEngine;
+  private openMemory?: OpenMemory;
+  private openReason?: OpenReason;
+  private maxCycles: number = 5;
 
   constructor(
     _invasiveness: any = 'extreme',
     _aggressiveness: any = 'extreme',
-    aiEngine?: AIInferenceEngine
+    aiEngine?: AIInferenceEngine,
+    openMemory?: OpenMemory,
+    openReason?: OpenReason
   ) {
-    this.invasiveness = 'extreme';
-    this.aggressiveness = 'extreme';
+    // this.invasiveness = 'extreme';
+    // this.aggressiveness = 'extreme';
     this.aiEngine = aiEngine || new AIInferenceEngine();
+    this.openMemory = openMemory;
+    this.openReason = openReason;
   }
 
   getInvasiveness(): 'extreme' {
@@ -41,28 +51,110 @@ export class AggressiveChromeOSScanner {
   }
 
   /**
-   * Perform extremely aggressive comprehensive scan
+   * Perform extremely aggressive comprehensive scan with recursive self-evolution
    */
-  async scanComprehensive(_target?: string, systemDump?: string): Promise<AggressiveScanResult[]> {
+  async scanComprehensive(_target?: string, systemDump?: string, updateCallback?: (cycle: number, message: string) => void): Promise<AggressiveScanResult[]> {
+    let allResults: AggressiveScanResult[] = [];
+    let currentCycle = 1;
+    let context = systemDump || 'ChromeOS Target';
+
+    // Cycle 1: Standard Aggressive Scan
+    if (updateCallback) updateCallback(1, "Initiating Cycle 1: Base Aggression...");
     
-    // If system dump provided, perform deep AI analysis first
-    let aiFindings: AggressiveScanResult[] = [];
+    // Deep AI Analysis
     if (systemDump) {
         const analysis = await this.aiEngine.analyzeSystemDeeply(systemDump);
-        aiFindings = analysis.vulnerabilities.map(v => ({
+        allResults.push(...analysis.vulnerabilities.map(v => ({
             exploit: v.split(':')[0] || 'AI Detected Vulnerability',
             type: 'ai-detected',
-            severity: 'critical',
+            severity: 'critical' as const,
             confidence: analysis.confidence,
             vector: v,
             evidence: ['Deep System Analysis'],
-            invasiveness: 'extreme'
-        }));
+            invasiveness: 'extreme' as const,
+            cycle: 1
+        })));
     }
 
-    // Run all scan types in parallel for maximum coverage
+    // Heuristic Scans
+    const standardResults = await this.runStandardScans(_target);
+    allResults.push(...standardResults.map(r => ({ ...r, cycle: 1 })));
+
+    // Evolution Cycles
+    while (currentCycle < this.maxCycles) {
+        currentCycle++;
+        if (updateCallback) updateCallback(currentCycle, `Initiating Cycle ${currentCycle}: Self-Evolution & Invigoration...`);
+
+        // Identify candidates for evolution (weak or blocked exploits)
+        const candidates = allResults.filter(r => r.confidence < 0.9 && r.cycle === currentCycle - 1);
+        
+        if (candidates.length === 0) {
+            if (updateCallback) updateCallback(currentCycle, "No candidates for evolution. Stopping.");
+            break;
+        }
+
+        const evolvedResults: AggressiveScanResult[] = [];
+
+        // Evolve each candidate
+        for (const candidate of candidates) {
+            
+            // Optional: Use OpenReason to analyze why it failed or if it's feasible
+            if (this.openReason) {
+                await this.openReason.reasonAboutUnenrollmentExploit(candidate.exploit, { vector: candidate.vector, cycle: currentCycle });
+            }
+
+            // Generate more aggressive vector
+            const evolvedVector = await this.aiEngine.generateMoreAggressiveVector(candidate.vector, context);
+            
+            // Generate payload
+            const payload = await this.aiEngine.generateExploitPayload(candidate.exploit, context);
+
+            const evolvedResult: AggressiveScanResult = {
+                exploit: `${candidate.exploit} (Evolved v${currentCycle})`,
+                type: 'ai-evolved',
+                severity: 'critical', // Evolved exploits are assumed critical
+                confidence: Math.min(candidate.confidence + 0.2, 0.99), // Boost confidence
+                vector: evolvedVector,
+                payload: payload,
+                evidence: [...candidate.evidence, 'AI Evolution', `Cycle ${currentCycle}`],
+                invasiveness: 'extreme',
+                cycle: currentCycle
+            };
+
+            evolvedResults.push(evolvedResult);
+
+            // Store in OpenMemory if available
+            if (this.openMemory) {
+                this.openMemory.storeExploitFinding(
+                    evolvedResult.exploit,
+                    evolvedResult.vector,
+                    evolvedResult.severity,
+                    ['evolved', `cycle-${currentCycle}`, 'ai-generated']
+                );
+            }
+        }
+
+        allResults.push(...evolvedResults);
+
+        // Check if we found a "winning" exploit (conceptually) to maybe stop early?
+        // For now, we continue to max cycles to be "insanely powerful".
+    }
+    
+    // Deduplicate and sort
+    const uniqueResults = this.deduplicateResults(allResults);
+    
+    console.log(`Aggressive scan complete: ${uniqueResults.length} exploits found across ${currentCycle} cycles.`);
+    
+    return uniqueResults.sort((a, b) => {
+      const severityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+      const severityDiff = severityOrder[b.severity] - severityOrder[a.severity];
+      if (severityDiff !== 0) return severityDiff;
+      return b.confidence - a.confidence;
+    });
+  }
+
+  private async runStandardScans(_target?: string): Promise<AggressiveScanResult[]> {
     const scanPromises = [
-      // ... (existing scans) ...
       this.scanUnenrollmentExploits(),
       this.scanKernelExploits(),
       this.scanFirmwareExploits(),
@@ -156,27 +248,13 @@ export class AggressiveChromeOSScanner {
       this.scanIptablesRules(),
       this.scanNftablesRules(),
     ];
-
-    const allResults = await Promise.all(scanPromises);
-    
-    // Flatten and deduplicate results
-    const flatResults = [...aiFindings, ...allResults.flat()];
-    const uniqueResults = this.deduplicateResults(flatResults);
-    
-    // Log scan statistics
-    console.log(`Aggressive scan complete: ${uniqueResults.length} exploits found (${this.invasiveness} invasiveness, ${this.aggressiveness} aggressiveness)`);
-    
-    // Sort by severity and confidence
-    return uniqueResults.sort((a, b) => {
-      const severityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-      const severityDiff = severityOrder[b.severity] - severityOrder[a.severity];
-      if (severityDiff !== 0) return severityDiff;
-      return b.confidence - a.confidence;
-    });
+    const results = await Promise.all(scanPromises);
+    return results.flat();
   }
 
   // Individual scan methods - extremely comprehensive
   private async scanUnenrollmentExploits(): Promise<AggressiveScanResult[]> {
+
     return [
       {
         exploit: 'OOBE Network Skip',
