@@ -4,6 +4,8 @@
  * Designed to find 100% of possible exploits
  */
 
+import { AIInferenceEngine } from '@lib/ai/inference';
+
 export interface AggressiveScanResult {
   exploit: string;
   type: string;
@@ -18,13 +20,16 @@ export interface AggressiveScanResult {
 export class AggressiveChromeOSScanner {
   private invasiveness: 'low' | 'medium' | 'high' | 'extreme';
   private aggressiveness: 'low' | 'medium' | 'high' | 'extreme';
+  private aiEngine: AIInferenceEngine;
 
   constructor(
     invasiveness: 'low' | 'medium' | 'high' | 'extreme' = 'extreme',
-    aggressiveness: 'low' | 'medium' | 'high' | 'extreme' = 'extreme'
+    aggressiveness: 'low' | 'medium' | 'high' | 'extreme' = 'extreme',
+    aiEngine?: AIInferenceEngine
   ) {
     this.invasiveness = invasiveness;
     this.aggressiveness = aggressiveness;
+    this.aiEngine = aiEngine || new AIInferenceEngine();
   }
 
   getInvasiveness(): 'low' | 'medium' | 'high' | 'extreme' {
@@ -38,10 +43,26 @@ export class AggressiveChromeOSScanner {
   /**
    * Perform extremely aggressive comprehensive scan
    */
-  async scanComprehensive(_target?: string): Promise<AggressiveScanResult[]> {
+  async scanComprehensive(_target?: string, systemDump?: string): Promise<AggressiveScanResult[]> {
+    
+    // If system dump provided, perform deep AI analysis first
+    let aiFindings: AggressiveScanResult[] = [];
+    if (systemDump && this.aggressiveness === 'extreme') {
+        const analysis = await this.aiEngine.analyzeSystemDeeply(systemDump);
+        aiFindings = analysis.vulnerabilities.map(v => ({
+            exploit: v.split(':')[0] || 'AI Detected Vulnerability',
+            type: 'ai-detected',
+            severity: 'critical',
+            confidence: analysis.confidence,
+            vector: v,
+            evidence: ['Deep System Analysis'],
+            invasiveness: 'extreme'
+        }));
+    }
 
     // Run all scan types in parallel for maximum coverage
     const scanPromises = [
+      // ... (existing scans) ...
       this.scanUnenrollmentExploits(),
       this.scanKernelExploits(),
       this.scanFirmwareExploits(),
@@ -139,7 +160,7 @@ export class AggressiveChromeOSScanner {
     const allResults = await Promise.all(scanPromises);
     
     // Flatten and deduplicate results
-    const flatResults = allResults.flat();
+    const flatResults = [...aiFindings, ...allResults.flat()];
     const uniqueResults = this.deduplicateResults(flatResults);
     
     // Log scan statistics

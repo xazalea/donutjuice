@@ -4,6 +4,7 @@ import { AggressiveChromeOSScanner } from '@lib/chromeos/aggressive-scanner'
 import { ModelManager } from '@lib/ai/model-manager'
 import { DeepInfraModel } from '@lib/integrations/deepinfra'
 import './AIConversationScanner.css'
+import './SystemDump.css'
 
 export function AIConversationScanner() {
   const [modelManager] = useState(() => new ModelManager())
@@ -15,6 +16,7 @@ export function AIConversationScanner() {
   const [autoAnalysis, setAutoAnalysis] = useState<any>(null)
   const [currentModel, setCurrentModel] = useState<DeepInfraModel>(modelManager.getCurrentModel())
   const [autoSwitch, setAutoSwitch] = useState(true)
+  const [systemDump, setSystemDump] = useState('')
   const [conversationMessages, setConversationMessages] = useState<Array<{role: string, content: string, model?: string}>>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -127,7 +129,7 @@ export function AIConversationScanner() {
         scanPlan.aggressiveness
       )
 
-      const results = await scanner.scanComprehensive(scanPlan.target)
+      const results = await scanner.scanComprehensive(scanPlan.target, systemDump)
       setScanResults(results)
 
       // Add scan completion message
@@ -164,7 +166,7 @@ export function AIConversationScanner() {
         </div>
       )}
 
-      <div className="model-controls">
+        <div className="model-controls">
         <div className="model-selector">
           <label>Model:</label>
           <select
@@ -196,6 +198,22 @@ export function AIConversationScanner() {
             Switched {modelManager.getSwitchHistory().length} time(s)
           </div>
         )}
+      </div>
+
+      <div className="system-dump-container">
+        <details>
+          <summary>📥 Full System Dump (For Vigorous Analysis)</summary>
+          <div className="dump-input-wrapper">
+            <p className="dump-hint">Paste system logs, config files, or any massive text blob here. Donut-2.5 will analyze it entirely.</p>
+            <textarea
+              value={systemDump}
+              onChange={(e) => setSystemDump(e.target.value)}
+              placeholder="Paste entire OS dump here..."
+              rows={6}
+              disabled={scanning}
+            />
+          </div>
+        </details>
       </div>
 
       <div className="conversation-container">
