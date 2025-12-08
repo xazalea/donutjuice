@@ -311,6 +311,29 @@ export function AIConversationScanner() {
                 <div className="result-type">Type: {result.type}</div>
                 <div className="result-vector">Vector: {result.vector}</div>
                 <div className="result-confidence">Confidence: {(result.confidence * 100).toFixed(0)}%</div>
+                
+                {/* Active Exploit Results */}
+                {result.activeExploitResult && (
+                  <div className="active-exploit-result">
+                    <div className="active-status">
+                        <span className="status-icon">{result.activeExploitResult.success ? '✅' : '❌'}</span>
+                        <strong>Active Exploit: {result.activeExploitResult.exploit}</strong>
+                    </div>
+                    <p className="active-details">{result.activeExploitResult.details}</p>
+                    
+                    {result.instructions && result.instructions.length > 0 && (
+                        <div className="exploit-instructions">
+                            <strong>📜 Exploit Instructions:</strong>
+                            <ol>
+                                {result.instructions.map((inst: string, i: number) => (
+                                    <li key={i}>{inst}</li>
+                                ))}
+                            </ol>
+                        </div>
+                    )}
+                  </div>
+                )}
+
                 {result.evidence.length > 0 && (
                   <div className="result-evidence">
                     <strong>Evidence:</strong>

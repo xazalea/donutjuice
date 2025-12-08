@@ -4,9 +4,7 @@
  * Designed to find 100% of possible exploits
  */
 
-import { AIInferenceEngine } from '@lib/ai/inference';
-import { OpenMemory } from '@lib/integrations/openmemory';
-import { OpenReason } from '@lib/integrations/openreason';
+import { ActiveExploiter, ActiveExploitResult } from '@lib/web-exploitation/active-exploitation';
 
 export interface AggressiveScanResult {
   exploit: string;
@@ -17,15 +15,17 @@ export interface AggressiveScanResult {
   payload?: string;
   evidence: string[];
   invasiveness: 'low' | 'medium' | 'high' | 'extreme';
-  cycle?: number; // Added to track evolution cycle
+  cycle?: number;
+  activeExploitResult?: ActiveExploitResult; // Added for active exploitation
+  instructions?: string[]; // Added for user instructions
 }
 
 export class AggressiveChromeOSScanner {
-  // private invasiveness: 'extreme' = 'extreme';
-  // private aggressiveness: 'extreme' = 'extreme';
+  // ...
   private aiEngine: AIInferenceEngine;
   private openMemory?: OpenMemory;
   private openReason?: OpenReason;
+  private activeExploiter: ActiveExploiter; // Added active exploiter
   private maxCycles: number = 5;
 
   constructor(
@@ -35,36 +35,27 @@ export class AggressiveChromeOSScanner {
     openMemory?: OpenMemory,
     openReason?: OpenReason
   ) {
-    // this.invasiveness = 'extreme';
-    // this.aggressiveness = 'extreme';
+    // ...
     this.aiEngine = aiEngine || new AIInferenceEngine();
     this.openMemory = openMemory;
     this.openReason = openReason;
+    this.activeExploiter = new ActiveExploiter();
   }
 
-  getInvasiveness(): 'extreme' {
-    return 'extreme';
-  }
+  // ...
 
-  getAggressiveness(): 'extreme' {
-    return 'extreme';
-  }
-
-  /**
-   * Perform extremely aggressive comprehensive scan with recursive self-evolution
-   */
   async scanComprehensive(_target?: string, systemDump?: string, updateCallback?: (cycle: number, message: string) => void): Promise<AggressiveScanResult[]> {
+    // ... (Cycle 1 initialization) ...
     let allResults: AggressiveScanResult[] = [];
     let currentCycle = 1;
     let context = systemDump || 'ChromeOS Target';
 
-    // Cycle 1: Standard Aggressive Scan
     if (updateCallback) updateCallback(1, "Initiating Cycle 1: Base Aggression...");
-    
-    // Deep AI Analysis
+
+    // ... (Deep AI Analysis & Heuristic Scans) ...
     if (systemDump) {
         const analysis = await this.aiEngine.analyzeSystemDeeply(systemDump);
-        allResults.push(...analysis.vulnerabilities.map(v => ({
+        allResults.push(...analysis.vulnerabilities.map((v: string) => ({
             exploit: v.split(':')[0] || 'AI Detected Vulnerability',
             type: 'ai-detected',
             severity: 'critical' as const,
@@ -76,16 +67,32 @@ export class AggressiveChromeOSScanner {
         })));
     }
 
-    // Heuristic Scans
     const standardResults = await this.runStandardScans(_target);
     allResults.push(...standardResults.map(r => ({ ...r, cycle: 1 })));
 
+    // Attempt Active Exploitation for High Confidence Results
+    if (updateCallback) updateCallback(currentCycle, "Attempting Active Exploitation on high-confidence targets...");
+    for (const result of allResults) {
+        if (result.confidence > 0.8 && _target) {
+             // Simple heuristic to trigger active exploits
+             if (result.exploit.toLowerCase().includes('session') || result.exploit.toLowerCase().includes('cookie')) {
+                 const activeResult = await this.activeExploiter.attemptSessionHijack(_target, 'session_id'); // Simplified target
+                 if (activeResult.success) {
+                     result.activeExploitResult = activeResult;
+                     result.instructions = activeResult.instructions;
+                     result.severity = 'critical';
+                     result.confidence = 1.0;
+                 }
+             }
+        }
+    }
+
     // Evolution Cycles
     while (currentCycle < this.maxCycles) {
+        // ... (Evolution logic) ...
         currentCycle++;
         if (updateCallback) updateCallback(currentCycle, `Initiating Cycle ${currentCycle}: Self-Evolution & Invigoration...`);
 
-        // Identify candidates for evolution (weak or blocked exploits)
         const candidates = allResults.filter(r => r.confidence < 0.9 && r.cycle === currentCycle - 1);
         
         if (candidates.length === 0) {
@@ -95,25 +102,20 @@ export class AggressiveChromeOSScanner {
 
         const evolvedResults: AggressiveScanResult[] = [];
 
-        // Evolve each candidate
         for (const candidate of candidates) {
-            
-            // Optional: Use OpenReason to analyze why it failed or if it's feasible
+            // ... (OpenReason check) ...
             if (this.openReason) {
                 await this.openReason.reasonAboutUnenrollmentExploit(candidate.exploit, { vector: candidate.vector, cycle: currentCycle });
             }
 
-            // Generate more aggressive vector
             const evolvedVector = await this.aiEngine.generateMoreAggressiveVector(candidate.vector, context);
-            
-            // Generate payload
             const payload = await this.aiEngine.generateExploitPayload(candidate.exploit, context);
 
             const evolvedResult: AggressiveScanResult = {
                 exploit: `${candidate.exploit} (Evolved v${currentCycle})`,
                 type: 'ai-evolved',
-                severity: 'critical', // Evolved exploits are assumed critical
-                confidence: Math.min(candidate.confidence + 0.2, 0.99), // Boost confidence
+                severity: 'critical',
+                confidence: Math.min(candidate.confidence + 0.2, 0.99),
                 vector: evolvedVector,
                 payload: payload,
                 evidence: [...candidate.evidence, 'AI Evolution', `Cycle ${currentCycle}`],
@@ -121,9 +123,18 @@ export class AggressiveChromeOSScanner {
                 cycle: currentCycle
             };
 
+            // Try active exploit on evolved result
+            if (_target && (evolvedResult.exploit.includes('Storage') || evolvedResult.exploit.includes('Hijack'))) {
+                 const activeResult = await this.activeExploiter.attemptLocalStorageHijack('vulnerable_key', 'hacked_value');
+                 if (activeResult.success) {
+                     evolvedResult.activeExploitResult = activeResult;
+                     evolvedResult.instructions = activeResult.instructions;
+                     evolvedResult.confidence = 1.0;
+                 }
+            }
+
             evolvedResults.push(evolvedResult);
 
-            // Store in OpenMemory if available
             if (this.openMemory) {
                 this.openMemory.storeExploitFinding(
                     evolvedResult.exploit,
@@ -133,16 +144,11 @@ export class AggressiveChromeOSScanner {
                 );
             }
         }
-
         allResults.push(...evolvedResults);
-
-        // Check if we found a "winning" exploit (conceptually) to maybe stop early?
-        // For now, we continue to max cycles to be "insanely powerful".
     }
     
-    // Deduplicate and sort
+    // ... (Deduplicate and Sort) ...
     const uniqueResults = this.deduplicateResults(allResults);
-    
     console.log(`Aggressive scan complete: ${uniqueResults.length} exploits found across ${currentCycle} cycles.`);
     
     return uniqueResults.sort((a, b) => {
