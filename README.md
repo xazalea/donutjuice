@@ -4,6 +4,13 @@ A comprehensive security research framework for ChromeOS vulnerability assessmen
 
 ## Features
 
+### 🚀 AI-Powered Conversation Scanner
+- **Conversational Interface**: Chat with donut-2.5 to plan custom scans
+- **Auto-Analysis**: Automatic vulnerability analysis on page load
+- **Custom Scan Plans**: AI creates tailored scan plans based on your requirements
+- **100% Coverage**: Aggressive, invasive scanning designed to find ALL exploits
+- **No Fixed Types**: Flexible scanning - tell the AI what you want to find
+
 ### Web Exploitation Modules
 - Cross-Site Scripting (XSS) Detection
 - SQL Injection Scanning
@@ -81,6 +88,13 @@ npm run build
 
 ## Enhanced Integrations
 
+### RAGFlow
+- **Advanced RAG engine** for intelligent exploit research
+- Conversational AI interface for custom scan planning
+- Knowledge base search and retrieval
+- Automatic document indexing
+- Based on: https://github.com/infiniflow/ragflow
+
 ### Crawl4AI RAG
 - Web crawling capabilities for exploit research
 - RAG (Retrieval-Augmented Generation) for knowledge base search
@@ -131,6 +145,52 @@ The framework includes comprehensive unenrollment exploit detection:
 - Enrollment State File Manipulation
 - D-Bus Service Exploitation
 - Chrome Extension Bypass
+
+## Aggressive Scanning
+
+The framework includes an **extremely aggressive and invasive** scanning system designed to find 100% of possible exploits:
+
+- **100+ Scan Types**: Comprehensive coverage of all possible attack vectors
+- **Extreme Invasiveness**: Deep system analysis and memory inspection
+- **Maximum Aggressiveness**: No stone left unturned
+- **Parallel Execution**: All scans run simultaneously for speed
+- **Intelligent Deduplication**: Results are automatically deduplicated and sorted by severity
+
+### Scan Categories Include:
+- Unenrollment exploits (OOBE, server-side, client-side)
+- Kernel exploits
+- Firmware vulnerabilities
+- Boot process exploits
+- Memory corruption (heap, stack, use-after-free, double-free)
+- Race conditions
+- Buffer overflows
+- Format string vulnerabilities
+- Integer overflows
+- Side-channel attacks
+- Speculative execution vulnerabilities
+- CPU vulnerabilities (Spectre, Meltdown)
+- DRAM attacks (RowHammer)
+- Process injection (DLL, hook, process)
+- Deep packet inspection
+- Memory dumps
+- System services
+- D-Bus services
+- File system exploits
+- Cryptographic vulnerabilities
+- Authentication/Authorization bypasses
+- Session/Token management
+- Key/Certificate management
+- Update/Recovery mechanisms
+- Developer/Recovery mode exploits
+- Secure/Verified Boot bypasses
+- TPM/Cryptohome exploits
+- Network/Power/Display managers
+- SELinux/AppArmor policy bypasses
+- Cgroups/Namespaces exploits
+- CVE database scanning
+- Exploit mitigation bypasses (ASLR, stack canaries, CFI)
+- ROP/JOP chain generation
+- And 50+ more categories
 
 ## License
 
