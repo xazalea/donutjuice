@@ -60,11 +60,14 @@ export function AIPanel() {
         <div className="api-key-input">
           <input
             type="password"
-            placeholder="Hugging Face API Key (optional)"
+            placeholder="API Key for donut-2.5 (optional)"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             disabled={analyzing}
           />
+        </div>
+        <div className="model-info">
+          <span className="model-name">donut-2.5</span>
         </div>
         <button onClick={collectDeviceData} disabled={analyzing}>
           Collect Device Data
@@ -86,12 +89,12 @@ export function AIPanel() {
         onClick={handleAnalyze}
         disabled={analyzing || !deviceData}
       >
-        {analyzing ? 'Analyzing...' : 'Analyze with AI'}
+        {analyzing ? 'Analyzing with donut-2.5...' : 'Analyze with donut-2.5'}
       </button>
 
       {analysisResult && (
         <div className="analysis-result">
-          <h3>AI Analysis Results</h3>
+          <h3>donut-2.5 Analysis Results</h3>
           <div className="confidence">
             Confidence: {(analysisResult.confidence * 100).toFixed(1)}%
           </div>

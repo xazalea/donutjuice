@@ -14,4 +14,5 @@ export * from './verified-boot-bypass';
 export * from './tpm-exploitation';
 export * from './cryptohome-exploitation';
 export * from './cve-database';
+export * from './unenrollment-exploits';
 

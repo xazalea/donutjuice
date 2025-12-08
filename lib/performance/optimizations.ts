@@ -117,7 +117,7 @@ export class PerformanceOptimizer {
   private setupBrowserParserWarmup(): void {
     // Browser parser warmup by injecting dummy WASM modules
     if (typeof WebAssembly !== 'undefined') {
-      const wasmModule = new WebAssembly.Module(
+      new WebAssembly.Module(
         new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00])
       );
       // Prime decoder cache

@@ -55,6 +55,7 @@ function App() {
       <header className="app-header">
         <h1>🍩 DonutJuice</h1>
         <p>ChromeOS Security Research Framework</p>
+        <p className="model-badge">Powered by donut-2.5</p>
       </header>
 
       <main className="app-main">

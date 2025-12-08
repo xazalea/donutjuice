@@ -15,6 +15,22 @@
   min-width: 200px;
 }
 
+.model-info {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: rgba(102, 126, 234, 0.2);
+  border-radius: 6px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.model-name {
+  font-weight: 600;
+  color: #fff;
+  font-size: 0.9rem;
+  font-family: monospace;
+}
+
 .api-key-input input {
   width: 100%;
   padding: 0.75rem;
