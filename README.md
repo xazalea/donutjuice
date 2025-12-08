@@ -6,6 +6,9 @@ A comprehensive security research framework for ChromeOS vulnerability assessmen
 
 ### 🚀 AI-Powered Conversation Scanner
 - **Multi-Model Support**: Choose from donut-2.5 (default), Llama-2-70b, Mixtral-8x7B, DeepSeek-V2.5, Qwen2.5-72B
+- **Vigorous Mode**: donut-2.5 now performs extremely aggressive, unrestricted deep system analysis
+- **Full System Dump**: Ingest entire OS logs/configs for "best exploit finder" capabilities
+- **Dynamic Exploit Generation**: AI actively hunts for vulnerabilities based on system state
 - **Automatic Model Switching**: If one AI refuses, automatically switches to a more relaxed model
 - **Memory Persistence**: OpenMemory ensures conversation context persists across model switches
 - **Advanced Reasoning**: OpenReasoning provides intelligent multi-step reasoning
