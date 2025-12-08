@@ -1,29 +1,51 @@
 import { useState, useEffect, useRef } from 'react'
 import { RAGFlowIntegration, ScanPlan } from '@lib/integrations/ragflow'
 import { AggressiveChromeOSScanner } from '@lib/chromeos/aggressive-scanner'
-import { AIInferenceEngine } from '@lib/ai'
+import { ModelManager } from '@lib/ai/model-manager'
+import { DeepInfraModel } from '@lib/integrations/deepinfra'
 import './AIConversationScanner.css'
 
 export function AIConversationScanner() {
+  const [modelManager] = useState(() => new ModelManager())
   const [ragflow] = useState(() => new RAGFlowIntegration())
   const [message, setMessage] = useState('')
   const [scanning, setScanning] = useState(false)
   const [scanResults, setScanResults] = useState<any[]>([])
   const [scanPlan, setScanPlan] = useState<ScanPlan | null>(null)
   const [autoAnalysis, setAutoAnalysis] = useState<any>(null)
+  const [currentModel, setCurrentModel] = useState<DeepInfraModel>(modelManager.getCurrentModel())
+  const [autoSwitch, setAutoSwitch] = useState(true)
+  const [conversationMessages, setConversationMessages] = useState<Array<{role: string, content: string, model?: string}>>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Initialize auto-switch
+  useEffect(() => {
+    modelManager.setAutoSwitch(autoSwitch)
+  }, [autoSwitch, modelManager])
 
   // Auto-analyze on page load
   useEffect(() => {
     const performAutoAnalysis = async () => {
       try {
         const deviceData = collectDeviceData()
-        const aiEngine = new AIInferenceEngine()
-        const analysis = await aiEngine.analyzeDeviceData(JSON.stringify(deviceData, null, 2))
+        const systemPrompt = 'You are an expert security researcher specializing in ChromeOS exploit discovery. Help users identify and plan comprehensive security scans. Be thorough, aggressive, and leave no stone unturned.'
+        
+        const result = await modelManager.chat(
+          `Analyze this device data for vulnerabilities: ${JSON.stringify(deviceData, null, 2)}`,
+          systemPrompt
+        )
+        
+        const analysis = {
+          vulnerabilities: [result.content],
+          recommendations: [],
+          confidence: 0.8,
+        }
         setAutoAnalysis(analysis)
         
         // Add initial AI message
-        ragflow.addMessage('assistant', `Initial analysis complete. I've detected ${analysis.vulnerabilities.length} potential vulnerabilities. Let's create an aggressive, comprehensive scan plan to find ALL exploits. What would you like to scan?`)
+        const initialMessage = `Initial analysis complete using ${currentModel.name}. I've detected potential vulnerabilities. Let's create an aggressive, comprehensive scan plan to find ALL exploits. What would you like to scan?`
+        ragflow.addMessage('assistant', initialMessage)
+        setConversationMessages([{ role: 'assistant', content: initialMessage, model: result.model }])
       } catch (error) {
         console.error('Auto-analysis error:', error)
       }
@@ -51,14 +73,46 @@ export function AIConversationScanner() {
     const userMessage = message
     setMessage('')
 
-    // Get AI response
-    await ragflow.chat(userMessage)
+    // Add user message to conversation
+    setConversationMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    ragflow.addMessage('user', userMessage)
 
-    // Check if scan plan was created
-    const plan = ragflow.getScanPlan()
-    if (plan) {
-      setScanPlan(plan)
+    try {
+      const systemPrompt = 'You are an expert security researcher specializing in ChromeOS exploit discovery. Help users identify and plan comprehensive security scans. Be thorough, aggressive, and leave no stone unturned. When the user and you agree on a scan plan, create a scan button.'
+      
+      const result = await modelManager.chat(userMessage, systemPrompt)
+      
+      // Update current model if switched
+      if (result.switched) {
+        const newModel = modelManager.getCurrentModel()
+        setCurrentModel(newModel)
+      }
+
+      // Add assistant response
+      setConversationMessages(prev => [...prev, { role: 'assistant', content: result.content, model: result.model }])
+      ragflow.addMessage('assistant', result.content)
+
+      // Check if scan plan was created
+      const plan = ragflow.getScanPlan()
+      if (plan) {
+        setScanPlan(plan)
+      }
+    } catch (error) {
+      console.error('Chat error:', error)
+      const errorMessage = `Error: ${(error as Error).message}`
+      setConversationMessages(prev => [...prev, { role: 'assistant', content: errorMessage }])
+      ragflow.addMessage('assistant', errorMessage)
     }
+  }
+
+  const handleModelChange = (modelId: string) => {
+    modelManager.setCurrentModel(modelId)
+    setCurrentModel(modelManager.getCurrentModel())
+  }
+
+  const handleAutoSwitchToggle = (enabled: boolean) => {
+    setAutoSwitch(enabled)
+    modelManager.setAutoSwitch(enabled)
   }
 
   const handleStartScan = async () => {
@@ -86,8 +140,6 @@ export function AIConversationScanner() {
     }
   }
 
-  const conversation = ragflow.getConversation()
-
   return (
     <div className="ai-conversation-scanner">
       {autoAnalysis && (
@@ -112,16 +164,53 @@ export function AIConversationScanner() {
         </div>
       )}
 
+      <div className="model-controls">
+        <div className="model-selector">
+          <label>Model:</label>
+          <select
+            value={currentModel.id}
+            onChange={(e) => handleModelChange(e.target.value)}
+            disabled={scanning}
+          >
+            {modelManager.getAvailableModels().map(model => (
+              <option key={model.id} value={model.id}>
+                {model.name} {model.default ? '(Default)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="auto-switch-toggle">
+          <label>
+            <input
+              type="checkbox"
+              checked={autoSwitch}
+              onChange={(e) => handleAutoSwitchToggle(e.target.checked)}
+              disabled={scanning}
+            />
+            Auto-Switch Models
+          </label>
+          <span className="toggle-hint">(Switches to relaxed models if current refuses)</span>
+        </div>
+        {modelManager.getSwitchHistory().length > 0 && (
+          <div className="switch-indicator">
+            Switched {modelManager.getSwitchHistory().length} time(s)
+          </div>
+        )}
+      </div>
+
       <div className="conversation-container">
         <div className="messages">
-          {conversation.messages
-            .filter(m => m.role !== 'system')
-            .map((msg, index) => (
-              <div key={index} className={`message ${msg.role}`}>
-                <div className="message-role">{msg.role === 'user' ? 'You' : 'donut-2.5'}</div>
-                <div className="message-content">{msg.content}</div>
+          {conversationMessages.map((msg, index) => (
+            <div key={index} className={`message ${msg.role}`}>
+              <div className="message-role">
+                {msg.role === 'user' ? 'You' : (msg.model ? modelManager.getAvailableModels().find(m => m.id === msg.model)?.name || 'AI' : 'AI')}
+                {msg.model && msg.role === 'assistant' && (
+                  <span className="model-badge-small">{msg.model.includes('donut') ? 'donut-2.5' : 'Other'}</span>
+                )}
               </div>
-            ))}
+              <div className="message-content">{msg.content}</div>
+            </div>
+          ))}
           <div ref={messagesEndRef} />
         </div>
 
