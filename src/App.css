@@ -47,6 +47,11 @@
   gap: 2rem;
 }
 
+.main-scanner-panel {
+  grid-column: 1 / -1;
+  min-height: 800px;
+}
+
 .panel {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);

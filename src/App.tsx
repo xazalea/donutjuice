@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { WebContainer } from '@webcontainer/api'
-import { ExploitScanner } from './components/ExploitScanner'
+import { AIConversationScanner } from './components/AIConversationScanner'
 import { AIPanel } from './components/AIPanel'
 import { PerformanceMonitor } from './components/PerformanceMonitor'
 import { PerformanceOptimizer } from '@lib/performance'
 import './App.css'
 
 function App() {
-  const [webcontainer, setWebcontainer] = useState<WebContainer | null>(null)
+  const [_webcontainer, setWebcontainer] = useState<WebContainer | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [optimizer, setOptimizer] = useState<PerformanceOptimizer | null>(null)
 
@@ -60,13 +60,13 @@ function App() {
 
       <main className="app-main">
         <div className="grid-container">
-          <div className="panel">
-            <h2>Exploit Scanner</h2>
-            <ExploitScanner webcontainer={webcontainer} />
+          <div className="panel main-scanner-panel">
+            <h2>🔥 Aggressive Exploit Scanner (donut-2.5)</h2>
+            <AIConversationScanner />
           </div>
 
           <div className="panel">
-            <h2>AI Analysis</h2>
+            <h2>Advanced AI Analysis</h2>
             <AIPanel />
           </div>
 
