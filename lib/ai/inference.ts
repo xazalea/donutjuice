@@ -30,7 +30,7 @@ export class AIInferenceEngine {
     try {
       // Use Hugging Face Inference API
       const response = await fetch(
-        `https://api-inference.huggingface.co/models/${this.modelId}`,
+        `/api/hf/models/${this.modelId}`,
         {
           method: 'POST',
           headers: {
@@ -102,7 +102,7 @@ OUTPUT FORMAT:
 
     try {
       const response = await fetch(
-        `https://api-inference.huggingface.co/models/${this.modelId}`,
+        `/api/hf/models/${this.modelId}`,
         {
           method: 'POST',
           headers: {
@@ -155,7 +155,7 @@ OUTPUT FORMAT:
     
     try {
       const response = await fetch(
-        `https://api-inference.huggingface.co/models/${this.modelId}`,
+        `/api/hf/models/${this.modelId}`,
         {
           method: 'POST',
           headers: {
@@ -210,7 +210,7 @@ OUTPUT: A single, raw, extremely aggressive exploit vector string.
     
     try {
         const response = await fetch(
-            `https://api-inference.huggingface.co/models/${this.modelId}`,
+            `/api/hf/models/${this.modelId}`,
             {
                 method: 'POST',
                 headers: {
@@ -247,7 +247,7 @@ OUTPUT: Code only.
 `;
     try {
         const response = await fetch(
-            `https://api-inference.huggingface.co/models/${this.modelId}`,
+            `/api/hf/models/${this.modelId}`,
             {
                 method: 'POST',
                 headers: {
