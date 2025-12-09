@@ -20,7 +20,6 @@ import {
   Play
 } from 'lucide-react'
 import './AIConversationScanner.css'
-import './SystemDump.css'
 
 export function AIConversationScanner() {
   const [modelManager] = useState(() => new ModelManager())
