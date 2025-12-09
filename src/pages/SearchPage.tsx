@@ -12,9 +12,12 @@ export function SearchPage() {
 
   useEffect(() => {
     let mounted = true
+    const currentLogs: string[] = []
+
     const addLog = (text: string) => {
       if (!mounted) return
       setLogs(prev => [...prev, text])
+      currentLogs.push(text)
       if (containerRef.current) {
         containerRef.current.scrollTop = containerRef.current.scrollHeight
       }
@@ -70,13 +73,60 @@ export function SearchPage() {
         const exitCode = await process.exit
         addLog(`Probe finished with exit code ${exitCode}.`)
 
-        // 3. Analyze Results
+        // 3. Analyze Results & Generate Real Exploit Strategy
         addLog("Analyzing probe telemetry...")
-        // Here we could feed the output back to the AI, but for now we proceed
         
-        setTimeout(() => {
-          if (mounted) navigate('/exploit')
-        }, 2000)
+        const probeOutput = currentLogs.join('\n')
+        
+        const exploitPrompt = `
+          Analyze the following system probe output from a ChromeOS/Linux environment:
+          
+          ${probeOutput.substring(0, 5000)}
+          
+          Based on this, generate a specific exploit strategy.
+          
+          OUTPUT JSON FORMAT ONLY:
+          {
+            "exploitName": "Name of the exploit",
+            "severity": "critical" | "high" | "medium",
+            "description": "Brief description of what was found",
+            "payloadFilename": "exploit.sh" or "payload.js",
+            "payloadCode": "The actual code to run (shell or nodejs)",
+            "steps": [
+              { "title": "Step 1 title", "description": "Detailed instruction for step 1" },
+              { "title": "Step 2 title", "description": "Detailed instruction for step 2" }
+            ]
+          }
+        `
+        
+        const { content: exploitStrategyJson } = await modelManager.chat(exploitPrompt, "You are a senior exploit developer. Output valid JSON only.")
+        
+        try {
+            // Try to parse JSON, handling potential markdown wrappers
+            const jsonStr = exploitStrategyJson.replace(/```json/g, '').replace(/```/g, '').trim()
+            const strategy = JSON.parse(jsonStr)
+            
+            // Store for ExploitPage
+            localStorage.setItem('exploitStrategy', JSON.stringify(strategy))
+            
+            // Write the actual exploit payload to the container so it's ready
+            if (strategy.payloadFilename && strategy.payloadCode) {
+                addLog(`Staging exploit payload: ${strategy.payloadFilename}...`)
+                await wc.fs.writeFile(strategy.payloadFilename, strategy.payloadCode)
+            }
+            
+            setTimeout(() => {
+              if (mounted) navigate('/exploit')
+            }, 1000)
+            
+        } catch (jsonError) {
+            addLog("Error parsing exploit strategy. Retrying...")
+            console.error(jsonError, exploitStrategyJson)
+            // Fallback or retry logic could go here
+             setTimeout(() => {
+              if (mounted) navigate('/exploit')
+            }, 2000)
+        }
 
       } catch (e) {
         addLog(`Analysis Error: ${(e as Error).message}`)
