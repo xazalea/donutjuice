@@ -4,6 +4,9 @@
  * Designed to find 100% of possible exploits
  */
 
+import { AIInferenceEngine } from '@lib/ai/inference';
+import { OpenMemory } from '@lib/integrations/openmemory';
+import { OpenReason } from '@lib/integrations/openreason';
 import { ActiveExploiter, ActiveExploitResult } from '@lib/web-exploitation/active-exploitation';
 
 export interface AggressiveScanResult {
