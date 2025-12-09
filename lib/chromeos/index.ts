@@ -15,5 +15,4 @@ export * from './tpm-exploitation';
 export * from './cryptohome-exploitation';
 export * from './cve-database';
 export * from './unenrollment-exploits';
-export * from './aggressive-scanner';
 
