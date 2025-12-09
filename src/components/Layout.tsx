@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from 'react-router-dom'
-import { Settings, Bell, Search, Shield, Zap, Terminal } from 'lucide-react'
+import { Bell, Shield, Zap, Terminal } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { WebContainer } from '@webcontainer/api'
 import { PerformanceOptimizer } from '@lib/performance'

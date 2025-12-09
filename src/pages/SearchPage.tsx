@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Terminal, Loader, ShieldAlert, FileCode } from 'lucide-react'
+import { Terminal } from 'lucide-react'
 import './SearchPage.css'
 
 export function SearchPage() {

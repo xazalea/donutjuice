@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { RAGFlowIntegration, ScanPlan } from '@lib/integrations/ragflow'
 import { AggressiveChromeOSScanner } from '@lib/chromeos/aggressive-scanner'
 import { ModelManager } from '@lib/ai/model-manager'
-import { DeepInfraModel } from '@lib/integrations/deepinfra'
 import { 
   Send, 
   Dna, 
@@ -12,11 +11,7 @@ import {
   XCircle, 
   AlertTriangle, 
   Terminal, 
-  Cpu, 
-  Zap,
   Filter,
-  Search,
-  ChevronRight,
   Play
 } from 'lucide-react'
 import './AIConversationScanner.css'
@@ -30,7 +25,6 @@ export function AIConversationScanner() {
   const [evolutionCycle, setEvolutionCycle] = useState(0)
   const [evolutionMessage, setEvolutionMessage] = useState('')
   const [scanPlan, setScanPlan] = useState<ScanPlan | null>(null)
-  const [currentModel, setCurrentModel] = useState<DeepInfraModel>(modelManager.getCurrentModel())
   const [systemDump, setSystemDump] = useState('')
   const [conversationMessages, setConversationMessages] = useState<Array<{role: string, content: string, model?: string}>>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -47,7 +41,6 @@ export function AIConversationScanner() {
     try {
       const systemPrompt = 'You are an expert security researcher specializing in ChromeOS exploit discovery. Help users identify and plan comprehensive security scans. Be thorough, aggressive, and leave no stone unturned. When the user and you agree on a scan plan, create a scan button.'
       const result = await modelManager.chat(userMessage, systemPrompt)
-      if (result.switched) setCurrentModel(modelManager.getCurrentModel())
       setConversationMessages(prev => [...prev, { role: 'assistant', content: result.content, model: result.model }])
       ragflow.addMessage('assistant', result.content)
       const plan = ragflow.getScanPlan()
