@@ -1,92 +1,58 @@
 .search-page {
   height: 100%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2rem;
+  background: #000;
   padding: 2rem;
 }
 
-.search-status {
-  text-align: center;
-  position: relative;
-}
-
-.search-status h2 {
-  font-family: 'Courier New', monospace;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-}
-
-.search-status p {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.pulse-ring {
-  width: 80px;
-  height: 80px;
-  background: rgba(108, 92, 231, 0.1);
-  border-radius: 50%;
-  position: absolute;
-  top: -40px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: -1;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% { transform: translateX(-50%) scale(0.8); opacity: 0.8; }
-  100% { transform: translateX(-50%) scale(2); opacity: 0; }
-}
-
-.terminal-window {
+.terminal-container {
   width: 100%;
-  max-width: 800px;
-  height: 500px;
-  background: #1e1e1e;
+  max-width: 900px;
+  height: 600px;
+  background: #000;
+  border: 1px solid #333;
   border-radius: 8px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.2);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  font-family: 'Fira Code', 'Roboto Mono', monospace;
+  font-family: 'Geist Mono', 'Fira Code', monospace;
 }
 
-.terminal-header {
-  background: #2d2d2d;
+.terminal-bar {
+  background: #111;
   padding: 0.5rem 1rem;
+  border-bottom: 1px solid #333;
+  color: #888;
+  font-size: 0.8rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #ccc;
-  font-size: 0.8rem;
-  border-bottom: 1px solid #333;
 }
 
-.terminal-body {
+.terminal-content {
   flex: 1;
-  padding: 1rem;
-  color: #00ff00;
+  padding: 1.5rem;
   overflow-y: auto;
+  color: #fff;
   font-size: 0.9rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  line-height: 1.5;
 }
 
 .log-line {
   white-space: pre-wrap;
   word-break: break-all;
+  margin-bottom: 0.25rem;
 }
 
-.cursor-blink {
+.cursor-block {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: #fff;
   animation: blink 1s step-end infinite;
 }
 
 @keyframes blink {
   50% { opacity: 0; }
 }
-

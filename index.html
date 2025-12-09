@@ -4,11 +4,18 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DonutJuice - ChromeOS Security Research Framework</title>
+    <title>DonutJuice</title>
+    <!-- Cross-Origin Isolation headers are handled in vite.config.ts / vercel.json -->
+    <script type="module">
+      import Client from 'https://g4f.dev/dist/js/client.js';
+      window.G4FClient = Client;
+      window.g4fReady = true;
+      // Dispatch event to notify React
+      window.dispatchEvent(new Event('g4f-ready'));
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

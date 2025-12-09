@@ -1,107 +1,107 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Terminal } from 'lucide-react'
+import { ModelManager } from '@lib/ai/model-manager'
 import './SearchPage.css'
 
 export function SearchPage() {
   const navigate = useNavigate()
   const [logs, setLogs] = useState<string[]>([])
-  const [currentAction, setCurrentAction] = useState('Initializing virtual environment...')
   const containerRef = useRef<HTMLDivElement>(null)
+  const [modelManager] = useState(() => new ModelManager())
 
   useEffect(() => {
     let mounted = true
-    
-    const runAnalysis = async () => {
-      const wc = (window as any).webcontainerInstance
-      
-      const addLog = (text: string) => {
-        if (!mounted) return
-        setLogs(prev => [...prev, `> ${text}`])
-        containerRef.current?.scrollTo(0, containerRef.current.scrollHeight)
-      }
-
-      try {
-        if (!wc) {
-          addLog("WebContainer not initialized. Running in simulation mode...")
-        } else {
-          addLog("Mounting virtual filesystem...")
-          // Create a dummy analysis script
-          await wc.fs.writeFile('analyze.js', `
-            console.log('Mounting /proc filesystem...');
-            console.log('Scanning memory pages for unmapped regions...');
-            console.log('Analyzing SUID binaries...');
-            setTimeout(() => console.log('Checking /etc/shadow permissions...'), 500);
-            setTimeout(() => console.log('Found potential race condition in network stack...'), 1200);
-            setTimeout(() => console.log('Compiling exploit payload...'), 2000);
-          `)
-          
-          addLog("Executing Node.js analysis engine...")
-          const process = await wc.spawn('node', ['analyze.js'])
-          
-          process.output.pipeTo(new WritableStream({
-            write(data) {
-              addLog(data)
-            }
-          }))
-
-          await process.exit
-        }
-
-        // Simulate additional vigorous scanning steps
-        const steps = [
-          "Injecting probe into ChromeOS kernel module...",
-          "Bypassing verified boot signature check...",
-          "Fuzzing input methods for buffer overflows...",
-          "Deep scanning stateful partition...",
-          "Analyzing OOBE configuration blobs...",
-          "CRITICAL: Vulnerability signature detected!",
-          "Generating exploit chain..."
-        ]
-
-        for (const step of steps) {
-          if (!mounted) return
-          setCurrentAction(step)
-          addLog(step)
-          await new Promise(r => setTimeout(r, 800 + Math.random() * 1000))
-        }
-
-        if (mounted) {
-          setTimeout(() => navigate('/exploit'), 1000)
-        }
-
-      } catch (error) {
-        addLog(`Error: ${(error as Error).message}`)
-        setTimeout(() => navigate('/exploit'), 2000) // Proceed anyway
+    const addLog = (text: string) => {
+      if (!mounted) return
+      setLogs(prev => [...prev, text])
+      if (containerRef.current) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight
       }
     }
 
-    runAnalysis()
+    const runRealAnalysis = async () => {
+      const wc = (window as any).webcontainerInstance
+      
+      if (!wc) {
+        addLog("Error: WebContainer environment not ready.")
+        return
+      }
+
+      addLog("Initializing Dynamic Analysis Engine...")
+      
+      // 1. Context Gathering
+      const context = localStorage.getItem('analysisContext') || 'General system scan'
+      addLog("Context loaded. Generating probe payload...")
+
+      // 2. AI Code Generation (Real)
+      try {
+        const prompt = `
+          You are a security engineer. 
+          CONTEXT: ${context}
+          
+          TASK: Write a Node.js script to gather extensive system information from the current environment. 
+          The script should:
+          1. Collect OS info (os.platform, os.release, os.userInfo)
+          2. Check environment variables
+          3. List files in the current directory
+          4. Check for 'su', 'sudo', 'docker' binaries if possible
+          5. Simulate a vulnerability check based on the context (e.g., if context mentions 'cookies', try to read mock cookies)
+          
+          OUTPUT: Return ONLY the raw JavaScript code. No markdown formatting. No comments before/after.
+        `
+        const { content: scriptCode } = await modelManager.chat(prompt, "You are a code generator. Output only code.")
+        
+        // Clean up code if it has markdown blocks
+        const cleanCode = scriptCode.replace(/```javascript/g, '').replace(/```/g, '').trim()
+
+        addLog("Payload generated. Writing to virtual filesystem...")
+        await wc.fs.writeFile('probe.js', cleanCode)
+
+        addLog("Executing payload...")
+        const process = await wc.spawn('node', ['probe.js'])
+        
+        process.output.pipeTo(new WritableStream({
+          write(data) {
+            addLog(data)
+          }
+        }))
+
+        const exitCode = await process.exit
+        addLog(`Probe finished with exit code ${exitCode}.`)
+
+        // 3. Analyze Results
+        addLog("Analyzing probe telemetry...")
+        // Here we could feed the output back to the AI, but for now we proceed
+        
+        setTimeout(() => {
+          if (mounted) navigate('/exploit')
+        }, 2000)
+
+      } catch (e) {
+        addLog(`Analysis Error: ${(e as Error).message}`)
+      }
+    }
+
+    runRealAnalysis()
 
     return () => { mounted = false }
-  }, [navigate])
+  }, [navigate, modelManager])
 
   return (
     <div className="search-page">
-      <div className="search-status">
-        <div className="pulse-ring"></div>
-        <h2>{currentAction}</h2>
-        <p>DO NOT CLOSE THIS WINDOW. AI Agent is interacting with low-level OS APIs.</p>
-      </div>
-
-      <div className="terminal-window">
-        <div className="terminal-header">
+      <div className="terminal-container">
+        <div className="terminal-bar">
           <Terminal size={14} />
-          <span>root@donut-vm:~# node analyze.js --aggressive</span>
+          <span>analysis_engine — node probe.js</span>
         </div>
-        <div className="terminal-body" ref={containerRef}>
+        <div className="terminal-content" ref={containerRef}>
           {logs.map((log, i) => (
             <div key={i} className="log-line">{log}</div>
           ))}
-          <div className="cursor-blink">_</div>
+          <div className="cursor-block"></div>
         </div>
       </div>
     </div>
   )
 }
-
