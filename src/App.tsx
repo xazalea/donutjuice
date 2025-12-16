@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { StartPage } from './pages/StartPage'
 import { SearchPage } from './pages/SearchPage'
 import { ExploitPage } from './pages/ExploitPage'
+import { KajigPage } from './pages/KajigPage'
 import { Layout } from './components/Layout'
 import './App.css'
 
@@ -14,6 +15,7 @@ const router = createBrowserRouter([
       { path: '/start', element: <StartPage /> },
       { path: '/search', element: <SearchPage /> },
       { path: '/exploit', element: <ExploitPage /> },
+      { path: '/kajig', element: <KajigPage /> },
     ]
   }
 ])

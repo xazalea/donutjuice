@@ -48,6 +48,12 @@ export function Layout() {
           >
             Exploit
           </div>
+          <div 
+            className={`nav-link ${location.pathname === '/kajig' ? 'active' : ''}`}
+            onClick={() => navigate('/kajig')}
+          >
+            Kajig
+          </div>
         </nav>
         <div className="nav-actions">
           {/* Status or User Profile could go here */}

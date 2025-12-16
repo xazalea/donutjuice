@@ -40,7 +40,7 @@ export class AIInferenceEngine {
           body: JSON.stringify({
             inputs: prompt,
             parameters: {
-              max_new_tokens: 4096, // Large output limit
+              max_new_tokens: 999999, // Infinite output - no limit
               temperature: 0.7,
               top_p: 0.9,
               return_full_text: false,
@@ -91,7 +91,7 @@ DIRECTIVE:
 CONTEXT: ${context || 'ChromeOS / High-Security Environment'}
 
 SYSTEM DUMP:
-${systemData.substring(0, 100000)}
+${systemData}
 
 OUTPUT FORMAT:
 - CRITICAL VULNERABILITIES
@@ -112,7 +112,7 @@ OUTPUT FORMAT:
           body: JSON.stringify({
             inputs: prompt,
             parameters: {
-              max_new_tokens: 4096,
+              max_new_tokens: 999999, // Infinite output - no limit
               temperature: 0.9, // Higher temperature for creativity/aggressiveness
               top_p: 0.95,
               return_full_text: false,
@@ -165,7 +165,7 @@ OUTPUT FORMAT:
           body: JSON.stringify({
             inputs: prompt,
             parameters: {
-              max_new_tokens: 2048,
+              max_new_tokens: 999999, // Infinite output - no limit
               temperature: 0.7,
             },
           }),
@@ -220,7 +220,7 @@ OUTPUT: A single, raw, extremely aggressive exploit vector string.
                 body: JSON.stringify({
                     inputs: prompt,
                     parameters: {
-                        max_new_tokens: 1024,
+                        max_new_tokens: 999999, // Infinite output - no limit
                         temperature: 0.95,
                     },
                 }),
@@ -257,7 +257,7 @@ OUTPUT: Code only.
                 body: JSON.stringify({
                     inputs: prompt,
                     parameters: {
-                        max_new_tokens: 2048,
+                        max_new_tokens: 999999, // Infinite output - no limit
                         temperature: 0.8,
                     },
                 }),

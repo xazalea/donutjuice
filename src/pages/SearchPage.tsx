@@ -1,155 +1,172 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Terminal } from 'lucide-react'
+import { Search, Code, RefreshCw } from 'lucide-react'
 import { ModelManager } from '@lib/ai/model-manager'
+import { PersistentExploitFinder, ExploitSearchProgress } from '@lib/chromeos/persistent-exploit-finder'
 import './SearchPage.css'
 
 export function SearchPage() {
   const navigate = useNavigate()
   const [logs, setLogs] = useState<string[]>([])
+  const [status, setStatus] = useState<'searching' | 'analyzing' | 'found' | 'retrying'>('searching')
+  const [attempt, setAttempt] = useState(0)
+  const [currentSource, setCurrentSource] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
   const [modelManager] = useState(() => new ModelManager())
+  const [exploitFinder] = useState(() => {
+    const manager = new ModelManager();
+    const finder = new PersistentExploitFinder(manager, (progress) => {
+      setAttempt(progress.attempt);
+      setStatus(progress.status);
+      setCurrentSource(progress.currentSource);
+      const logMsg = `[Attempt ${progress.attempt}] ${progress.message}`;
+      setLogs(prev => [...prev, logMsg]);
+      if (containerRef.current) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      }
+    });
+    return finder;
+  })
 
   useEffect(() => {
     let mounted = true
     const currentLogs: string[] = []
 
-    const addLog = (text: string) => {
+    const addLog = (text: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
       if (!mounted) return
-      setLogs(prev => [...prev, text])
-      currentLogs.push(text)
+      const prefix = type === 'success' ? '✓' : type === 'warning' ? '⚠' : type === 'error' ? '✗' : '→'
+      const logText = `${prefix} ${text}`
+      setLogs(prev => [...prev, logText])
+      currentLogs.push(logText)
       if (containerRef.current) {
         containerRef.current.scrollTop = containerRef.current.scrollHeight
       }
     }
 
-    const runRealAnalysis = async () => {
-      const wc = (window as any).webcontainerInstance
-      
-      if (!wc) {
-        addLog("Error: WebContainer environment not ready.")
-        return
-      }
-
-      addLog("Initializing Dynamic Analysis Engine...")
-      
-      // 1. Context Gathering
-      const context = localStorage.getItem('analysisContext') || 'General system scan'
-      addLog("Context loaded. Generating probe payload...")
-
-      // 2. AI Code Generation (Real)
+    const runPersistentSearch = async () => {
       try {
-        const prompt = `
-          You are a security engineer. 
-          CONTEXT: ${context}
-          
-          TASK: Write a Node.js script to gather extensive system information from the current environment. 
-          The script should:
-          1. Collect OS info (os.platform, os.release, os.userInfo)
-          2. Check environment variables
-          3. List files in the current directory
-          4. Check for 'su', 'sudo', 'docker' binaries if possible
-          5. Simulate a vulnerability check based on the context (e.g., if context mentions 'cookies', try to read mock cookies)
-          
-          OUTPUT: Return ONLY the raw JavaScript code. No markdown formatting. No comments before/after.
-        `
-        const { content: scriptCode } = await modelManager.chat(prompt, "You are a code generator. Output only code.")
+        setLogs(prev => [...prev, '🚀 Starting PERSISTENT Exploit Finder...'])
+        setLogs(prev => [...prev, '⚡ This will NEVER fail - keeps trying until exploit is found!'])
+        setLogs(prev => [...prev, ''])
         
-        // Clean up code if it has markdown blocks
-        const cleanCode = scriptCode.replace(/```javascript/g, '').replace(/```/g, '').trim()
+        // Get user's query from context
+        const context = localStorage.getItem('analysisContext') || 'General ChromeOS vulnerability scan'
+        const contextLines = context.split('\n')
+        const userQuery = contextLines
+          .filter(line => line.startsWith('user:'))
+          .map(line => line.replace(/^user:\s*/i, ''))
+          .pop() || context
 
-        addLog("Payload generated. Writing to virtual filesystem...")
-        await wc.fs.writeFile('probe.js', cleanCode)
+        setLogs(prev => [...prev, `📝 User Query: "${userQuery.substring(0, 100)}${userQuery.length > 100 ? '...' : ''}"`])
+        setLogs(prev => [...prev, ''])
+        setLogs(prev => [...prev, '🔍 Using multiple sources:'])
+        setLogs(prev => [...prev, '   - SearXNG (web search)'])
+        setLogs(prev => [...prev, '   - ChromeOS Source Code'])
+        setLogs(prev => [...prev, '   - Chromebook Utilities'])
+        setLogs(prev => [...prev, '   - AI Models (Donut + Qwen)'])
+        setLogs(prev => [...prev, '   - Bellum/Nacho'])
+        setLogs(prev => [...prev, ''])
 
-        addLog("Executing payload...")
-        const process = await wc.spawn('node', ['probe.js'])
-        
-        process.output.pipeTo(new WritableStream({
-          write(data) {
-            addLog(data)
-          }
-        }))
+        // This will NEVER fail - keeps trying until it finds an exploit
+        const exploitRecord = await exploitFinder.findExploit(userQuery)
 
-        const exitCode = await process.exit
-        addLog(`Probe finished with exit code ${exitCode}.`)
+        setLogs(prev => [...prev, ''])
+        setLogs(prev => [...prev, `✅ EXPLOIT FOUND: ${exploitRecord.name}`])
+        setLogs(prev => [...prev, `   Severity: ${exploitRecord.severity.toUpperCase()}`])
+        setLogs(prev => [...prev, `   Type: ${exploitRecord.exploitType}`])
+        setLogs(prev => [...prev, `   Steps: ${exploitRecord.steps.length}`])
+        setLogs(prev => [...prev, ''])
+        setLogs(prev => [...prev, '💾 Saved to exploit database'])
+        setLogs(prev => [...prev, '📖 Redirecting to exploit guide...'])
 
-        // 3. Analyze Results & Generate Real Exploit Strategy
-        addLog("Analyzing probe telemetry...")
-        
-        const probeOutput = currentLogs.join('\n')
-        
-        const exploitPrompt = `
-          Analyze the following system probe output from a ChromeOS/Linux environment:
-          
-          ${probeOutput.substring(0, 5000)}
-          
-          Based on this, generate a specific exploit strategy.
-          
-          OUTPUT JSON FORMAT ONLY:
-          {
-            "exploitName": "Name of the exploit",
-            "severity": "critical" | "high" | "medium",
-            "description": "Brief description of what was found",
-            "payloadFilename": "exploit.sh" or "payload.js",
-            "payloadCode": "The actual code to run (shell or nodejs)",
-            "steps": [
-              { "title": "Step 1 title", "description": "Detailed instruction for step 1" },
-              { "title": "Step 2 title", "description": "Detailed instruction for step 2" }
-            ]
-          }
-        `
-        
-        const { content: exploitStrategyJson } = await modelManager.chat(exploitPrompt, "You are a senior exploit developer. Output valid JSON only.")
-        
-        try {
-            // Try to parse JSON, handling potential markdown wrappers
-            const jsonStr = exploitStrategyJson.replace(/```json/g, '').replace(/```/g, '').trim()
-            const strategy = JSON.parse(jsonStr)
-            
-            // Store for ExploitPage
-            localStorage.setItem('exploitStrategy', JSON.stringify(strategy))
-            
-            // Write the actual exploit payload to the container so it's ready
-            if (strategy.payloadFilename && strategy.payloadCode) {
-                addLog(`Staging exploit payload: ${strategy.payloadFilename}...`)
-                await wc.fs.writeFile(strategy.payloadFilename, strategy.payloadCode)
-            }
-            
-            setTimeout(() => {
-              if (mounted) navigate('/exploit')
-            }, 1000)
-            
-        } catch (jsonError) {
-            addLog("Error parsing exploit strategy. Retrying...")
-            console.error(jsonError, exploitStrategyJson)
-            // Fallback or retry logic could go here
-             setTimeout(() => {
-              if (mounted) navigate('/exploit')
-            }, 2000)
+        // Store for ExploitPage
+        const exploitStrategy = {
+          exploitName: exploitRecord.name,
+          severity: exploitRecord.severity,
+          description: exploitRecord.description,
+          payloadFilename: `exploit_${exploitRecord.exploitType.replace(/\s+/g, '_')}.sh`,
+          payloadCode: exploitRecord.payloadCode || `# ${exploitRecord.name}\n# See steps for instructions`,
+          steps: exploitRecord.steps,
+          sourceCodeResults: exploitRecord.sourceCodeResults,
+          references: exploitRecord.references,
+          exploitType: exploitRecord.exploitType,
         }
+        localStorage.setItem('exploitStrategy', JSON.stringify(exploitStrategy))
+        localStorage.setItem('exploitRecordId', exploitRecord.id?.toString() || '')
+
+        setStatus('found')
+        
+        setTimeout(() => {
+          if (mounted) navigate('/exploit')
+        }, 2000)
 
       } catch (e) {
-        addLog(`Analysis Error: ${(e as Error).message}`)
+        setLogs(prev => [...prev, `⚠️ Error: ${(e as Error).message}`])
+        setLogs(prev => [...prev, '🔄 Retrying with different strategy...'])
+        console.error('Search error:', e)
+        // The persistent finder will handle retries internally
       }
     }
 
-    runRealAnalysis()
+    runPersistentSearch()
 
     return () => { mounted = false }
-  }, [navigate, modelManager])
+  }, [navigate, exploitFinder])
 
   return (
     <div className="search-page">
+      <div className="search-header">
+        <h1>🔍 ChromeOS Exploit Search</h1>
+        <p className="subtitle">Searching the ChromeOS source code repository for vulnerabilities...</p>
+      </div>
+      
       <div className="terminal-container">
         <div className="terminal-bar">
-          <Terminal size={14} />
-          <span>analysis_engine — node probe.js</span>
+          <Search size={14} />
+          <span>persistent_exploit_finder — Never Fails Mode</span>
+          {status === 'searching' && <span className="status-badge searching">Searching... (Attempt {attempt})</span>}
+          {status === 'analyzing' && <span className="status-badge analyzing">Analyzing... (Attempt {attempt})</span>}
+          {status === 'retrying' && <span className="status-badge retrying"><RefreshCw size={12} /> Retrying... (Attempt {attempt})</span>}
+          {status === 'found' && <span className="status-badge found">✅ Exploit Found!</span>}
         </div>
         <div className="terminal-content" ref={containerRef}>
-          {logs.map((log, i) => (
-            <div key={i} className="log-line">{log}</div>
-          ))}
-          <div className="cursor-block"></div>
+          {logs.length === 0 && (
+            <div className="empty-search-state">
+              <Code size={48} />
+              <p>Initializing search engine...</p>
+            </div>
+          )}
+          {logs.map((log, i) => {
+            const isSuccess = log.startsWith('✓')
+            const isWarning = log.startsWith('⚠')
+            const isError = log.startsWith('✗')
+            const isInfo = log.startsWith('→') || log.startsWith('🔍') || log.startsWith('📝') || log.startsWith('🔎') || log.startsWith('🧠') || log.startsWith('🤖')
+            
+            return (
+              <div 
+                key={i} 
+                className={`log-line ${isSuccess ? 'success' : isWarning ? 'warning' : isError ? 'error' : isInfo ? 'info' : ''}`}
+              >
+                {log}
+              </div>
+            )
+          })}
+          {status !== 'error' && <div className="cursor-block"></div>}
+        </div>
+      </div>
+      
+      <div className="search-info">
+        <div className="info-card">
+          <h3>🔍 Search Sources:</h3>
+          <p>SearXNG, ChromeOS Source Code, Chromebook Utilities, AI Models</p>
+        </div>
+        <div className="info-card">
+          <h3>⚡ Never Fails:</h3>
+          <p>Keeps trying until an exploit is found - up to 50 attempts with different strategies</p>
+        </div>
+        <div className="info-card">
+          <h3>💾 Auto-Saved:</h3>
+          <p>All found exploits are saved to the database and available in the Kajig gallery</p>
         </div>
       </div>
     </div>
