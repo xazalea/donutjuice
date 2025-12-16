@@ -433,8 +433,8 @@ export class ChromeOSSourceCodeSearch {
     prerequisites: string[];
     steps: Array<{ title: string; description: string; code?: string }>;
     references: Array<{ title: string; url: string }>;
-  } {
-    const steps: Array<{ title: string; description: string; code?: string }> = [];
+  }> {
+    let steps: Array<{ title: string; description: string; code?: string }> = [];
     
     // Generate steps based on exploit type
     switch (finding.exploitType) {

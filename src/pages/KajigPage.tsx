@@ -247,7 +247,6 @@ export function KajigPage() {
                 </p>
               )}
             </div>
-            </div>
 
             <h2>{selectedExploit.name}</h2>
             <p className="exploit-description">{selectedExploit.description}</p>
