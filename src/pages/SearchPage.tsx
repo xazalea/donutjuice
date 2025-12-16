@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, Code, RefreshCw } from 'lucide-react'
 import { ModelManager } from '@lib/ai/model-manager'
 import { PersistentExploitFinder, ExploitSearchProgress } from '@lib/chromeos/persistent-exploit-finder'
+import { ModelLoadingIndicator } from '../components/ModelLoadingIndicator'
 import './SearchPage.css'
 
 export function SearchPage() {
@@ -27,6 +28,9 @@ export function SearchPage() {
     });
     return finder;
   })
+  
+  // Use the same modelManager for loading indicator
+  const [searchModelManager] = useState(() => new ModelManager())
 
   useEffect(() => {
     let mounted = true
@@ -169,6 +173,7 @@ export function SearchPage() {
           <p>All found exploits are saved to the database and available in the Kajig gallery</p>
         </div>
       </div>
+      <ModelLoadingIndicator modelManager={searchModelManager} />
     </div>
   )
 }

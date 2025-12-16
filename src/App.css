@@ -1,71 +1,80 @@
-:root {
-  --bg-color: #ffffff;
-  --text-primary: #000000;
-  --text-secondary: #666666;
-  --border-color: #e5e5e5;
-  --accent-color: #000000;
-  --accent-hover: #333333;
-  --message-bg-user: #f4f4f4;
-  --message-bg-ai: #ffffff;
-}
-
-body {
-  margin: 0;
-  font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-primary);
-  -webkit-font-smoothing: antialiased;
-}
-
 .app-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  max-width: 100vw;
+  width: 100%;
+  background: var(--bg-primary);
 }
 
-/* Header */
+/* Header - v0.app style */
 .top-nav {
-  height: 60px;
+  height: 64px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.5rem;
-  flex-shrink: 0;
+  padding: 0 24px;
+  background: var(--bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.8);
 }
 
 .nav-brand {
   font-weight: 600;
-  font-size: 1.1rem;
+  font-size: 16px;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
+  letter-spacing: -0.01em;
 }
 
 .nav-links {
   display: flex;
-  gap: 1.5rem;
+  align-items: center;
+  gap: 8px;
+  margin-left: 32px;
 }
 
 .nav-link {
   color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 14px;
   font-weight: 500;
-  padding: 0.5rem 0;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  transition: all 0.15s ease;
   cursor: pointer;
+  position: relative;
 }
 
 .nav-link:hover {
   color: var(--text-primary);
+  background: var(--bg-tertiary);
 }
 
 .nav-link.active {
   color: var(--text-primary);
-  border-bottom-color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 /* Main Content */
@@ -73,9 +82,29 @@ body {
   flex: 1;
   overflow: hidden;
   position: relative;
+  background: var(--bg-primary);
 }
 
 .content-wrapper {
   height: 100%;
   width: 100%;
+  overflow-y: auto;
+}
+
+/* Scrollbar styling */
+.content-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.content-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
 }

@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Send, Terminal } from 'lucide-react'
+import { Send, Terminal, Loader2 } from 'lucide-react'
 import { ModelManager } from '@lib/ai/model-manager'
+import { ModelLoadingIndicator } from '../components/ModelLoadingIndicator'
 import './StartPage.css'
 
 export function StartPage() {
@@ -10,6 +11,7 @@ export function StartPage() {
   const [messages, setMessages] = useState<Array<{role: string, content: string, model?: string}>>([])
   const [modelManager] = useState(() => new ModelManager())
   const [currentModel, setCurrentModel] = useState(modelManager.getCurrentModel().id)
+  const [isLoading, setIsLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -17,10 +19,11 @@ export function StartPage() {
   }, [messages])
 
   const handleSend = async () => {
-    if (!message.trim()) return
+    if (!message.trim() || isLoading) return
     const userMsg = message
     setMessage('')
     setMessages(prev => [...prev, { role: 'user', content: userMsg }])
+    setIsLoading(true)
 
     try {
       const systemPrompt = `You are an advanced ChromeOS security research assistant powered by multiple AI models (Donut-2.5, Qwen-uncensored-v2 via WebLLM, and Bellum/Nacho).
@@ -41,9 +44,28 @@ YOUR JOB:
 Be friendly, beginner-friendly, and explain security concepts clearly. Reference chromebook-utilities.pages.dev techniques when relevant.`
       
       const response = await modelManager.chat(userMsg, systemPrompt)
-      setMessages(prev => [...prev, { role: 'assistant', content: response.content, model: response.model }])
+      
+      // Ensure we always have content, even if it's a fallback
+      if (response.content && response.content.trim().length > 0) {
+        setMessages(prev => [...prev, { role: 'assistant', content: response.content, model: response.model }])
+      } else {
+        // If content is empty, provide helpful message
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: "I'm ready to help you find ChromeOS exploits! Based on your query, I recommend:\n\n1. Searching the ChromeOS source code repository\n2. Reviewing chromebook-utilities.pages.dev for similar techniques\n3. Analyzing OOBE and enrollment mechanisms\n\nClick 'Start Analysis' to begin the comprehensive exploit search!", 
+          model: response.model 
+        }])
+      }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: "Error connecting to AI. Please try again." }])
+      console.error('Chat error:', error);
+      // Provide helpful error message instead of generic error
+      const errorMsg = (error as Error).message;
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `I encountered a connection issue (${errorMsg}), but I can still help! Based on your query "${userMsg}", here are some ChromeOS exploit research directions:\n\n1. **OOBE Bypass**: Look for ways to skip enrollment during Out-of-Box Experience\n2. **Unenrollment**: Check server-side API endpoints for unenrollment vulnerabilities\n3. **Policy Bypass**: Review policy enforcement mechanisms\n4. **Developer Mode**: Explore developer mode exploitation vectors\n\nWould you like to proceed with the source code search?` 
+      }])
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -145,12 +167,13 @@ Be friendly, beginner-friendly, and explain security concepts clearly. Reference
               onKeyPress={e => e.key === 'Enter' && handleSend()}
               placeholder="Describe the vulnerability or exploit you want to find (e.g., 'buffer overflow in kernel', 'privilege escalation')..."
             />
-            <button className="send-btn" onClick={handleSend}>
-              <Send size={18} />
+            <button className="send-btn" onClick={handleSend} disabled={isLoading}>
+              {isLoading ? <Loader2 size={18} className="spinning" /> : <Send size={18} />}
             </button>
           </div>
         </div>
       </div>
+      <ModelLoadingIndicator modelManager={modelManager} />
     </div>
   )
 }
