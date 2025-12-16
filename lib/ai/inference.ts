@@ -5,6 +5,7 @@
  */
 
 import { WebLLMIntegration } from '@lib/integrations/webllm';
+import { fetchWithProxy } from '@lib/utils/cors-proxy';
 
 export interface AIAnalysisResult {
   vulnerabilities: string[];
@@ -201,14 +202,15 @@ export class AIInferenceEngine {
       try {
         response = await fetch(`/api/hf/models/${this.modelId}`, requestOptions);
       } catch (proxyError) {
-        console.warn('Proxy failed, trying direct API:', proxyError);
+        console.warn('Proxy failed, trying CORS proxy:', proxyError);
         try {
-          response = await fetch(
+          response = await fetchWithProxy(
             `https://api-inference.huggingface.co/models/${this.modelId}`,
-            requestOptions
+            requestOptions,
+            true // Use CORS proxy
           );
         } catch (directError) {
-          console.warn('Direct API failed, using fallback:', directError);
+          console.warn('CORS proxy also failed, using fallback:', directError);
           return this.generateFallbackAnalysis(systemData);
         }
       }
@@ -278,9 +280,10 @@ export class AIInferenceEngine {
         response = await fetch(`/api/hf/models/${this.modelId}`, requestOptions);
       } catch (proxyError) {
         try {
-          response = await fetch(
+          response = await fetchWithProxy(
             `https://api-inference.huggingface.co/models/${this.modelId}`,
-            requestOptions
+            requestOptions,
+            true // Use CORS proxy
           );
         } catch (directError) {
           return this.generateFallbackAnalysis(context);
@@ -354,9 +357,10 @@ OUTPUT: A single, raw, extremely aggressive exploit vector string.
           response = await fetch(`/api/hf/models/${this.modelId}`, requestOptions);
         } catch (proxyError) {
           try {
-            response = await fetch(
+            response = await fetchWithProxy(
               `https://api-inference.huggingface.co/models/${this.modelId}`,
-              requestOptions
+              requestOptions,
+              true // Use CORS proxy
             );
           } catch (directError) {
             return previousAttempt + " (Aggressive Variant)";
@@ -415,13 +419,15 @@ OUTPUT: Code only.
           response = await fetch(`/api/hf/models/${this.modelId}`, requestOptions);
         } catch (proxyError) {
           try {
-            response = await fetch(
+            response = await fetchWithProxy(
               `https://api-inference.huggingface.co/models/${this.modelId}`,
-              requestOptions
+              requestOptions,
+              true // Use CORS proxy
             );
           } catch (directError) {
             return "# Error generating payload";
           }
+        }
         }
         
         if (!response.ok) {

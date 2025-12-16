@@ -57,15 +57,15 @@ export class ChromeOSSourceCodeSearch {
       // Note: The actual API may require different parameters
       const searchUrl = `${this.searchApiUrl}?q=${encodeURIComponent(searchQuery)}&sq=package:chromiumos`;
       
-      // Since we can't directly access the API from browser due to CORS,
-      // we'll use a proxy approach or fetch with proper headers
-      const response = await fetch(searchUrl, {
+      // Use CORS proxy to handle CORS issues
+      const { fetchWithProxy } = await import('@lib/utils/cors-proxy');
+      const response = await fetchWithProxy(searchUrl, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
         },
         mode: 'cors',
-      });
+      }, true);
 
       if (!response.ok) {
         // Fallback: Use web scraping approach or return mock data with instructions

@@ -4,6 +4,8 @@
  * Based on: https://github.com/searxng/searxng
  */
 
+import { fetchWithProxy } from '@lib/utils/cors-proxy';
+
 export interface SearXNGResult {
   title: string;
   url: string;
@@ -48,12 +50,16 @@ export class SearXNGIntegration {
         ...(options.safesearch && { safesearch: options.safesearch }),
       });
 
-      const response = await fetch(`${this.baseUrl}/search?${params.toString()}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
+      const response = await fetchWithProxy(
+        `${this.baseUrl}/search?${params.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
         },
-      });
+        true // Use CORS proxy
+      );
 
       if (!response.ok) {
         throw new Error(`SearXNG request failed: ${response.statusText}`);
@@ -85,7 +91,16 @@ export class SearXNGIntegration {
           format: 'json',
         });
 
-        const response = await fetch(`${instance}/search?${params.toString()}`);
+        const response = await fetchWithProxy(
+          `${instance}/search?${params.toString()}`,
+          {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+          },
+          true // Use CORS proxy
+        );
         if (response.ok) {
           const data = await response.json();
           return this.parseResults(data);
