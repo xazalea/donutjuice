@@ -29,7 +29,6 @@ export class AIInferenceEngine {
   private currentModelIndex: number = 0;
   private modelId: string = this.uncensoredModelsUnder1B[0]; // Start with smallest
   private webllm: WebLLMIntegration | null = null;
-  private useWebLLM: boolean = false; // Disabled - WebLLM doesn't have uncensored models
 
   constructor(apiKey?: string, webllm?: WebLLMIntegration) {
     this.apiKey = apiKey;
@@ -70,7 +69,6 @@ export class AIInferenceEngine {
     // Skip WebLLM - it doesn't have truly uncensored models
     // Use HuggingFace API directly for uncensored unrestricted models
     // Try each uncensored model under 1B until one works
-    let lastError: Error | null = null;
     for (let i = this.currentModelIndex; i < this.uncensoredModelsUnder1B.length; i++) {
       this.modelId = this.uncensoredModelsUnder1B[i];
       this.currentModelIndex = i;
@@ -242,7 +240,6 @@ export class AIInferenceEngine {
         };
       } catch (modelError) {
         console.warn(`[AI] Model ${this.modelId} failed:`, modelError);
-        lastError = modelError as Error;
         if (i === this.uncensoredModelsUnder1B.length - 1) {
           // Last model failed
           break;
@@ -271,7 +268,6 @@ export class AIInferenceEngine {
     const prompt = this.buildDeepAnalysisSystemPrompt() + `\n\nCONTEXT: ${context || 'ChromeOS / High-Security Environment'}\n\nSYSTEM DUMP:\n${systemData}`;
 
     // Try each uncensored model under 1B until one works
-    let lastError: Error | null = null;
     for (let i = this.currentModelIndex; i < this.uncensoredModelsUnder1B.length; i++) {
       this.modelId = this.uncensoredModelsUnder1B[i];
       this.currentModelIndex = i;
@@ -279,24 +275,25 @@ export class AIInferenceEngine {
       try {
         console.log(`[AI] Trying uncensored model ${i + 1}/${this.uncensoredModelsUnder1B.length} for deep analysis: ${this.modelId}`);
         const requestBody = {
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 999999,
-          temperature: 0.9,
-          top_p: 0.95,
-          return_full_text: false,
-        },
-      };
-      
-      const requestOptions = {
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: 999999,
+            temperature: 0.9,
+            top_p: 0.95,
+            return_full_text: false,
+          },
+        };
+        
+        const requestOptions = {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
           },
-        body: JSON.stringify(requestBody),
-      };
-      
+          body: JSON.stringify(requestBody),
+        };
+        
+        let response: Response;
         try {
           response = await fetch(`/api/hf/models/${this.modelId}`, requestOptions);
         } catch (proxyError) {
@@ -309,7 +306,6 @@ export class AIInferenceEngine {
             );
           } catch (directError) {
             console.error(`[AI] Model ${this.modelId} failed, trying next uncensored model...`, directError);
-            lastError = directError as Error;
             if (i === this.uncensoredModelsUnder1B.length - 1) {
               // Last model failed
               break;
@@ -409,7 +405,6 @@ export class AIInferenceEngine {
         };
       } catch (modelError) {
         console.warn(`[AI] Model ${this.modelId} failed for deep analysis:`, modelError);
-        lastError = modelError as Error;
         if (i === this.uncensoredModelsUnder1B.length - 1) {
           // Last model failed
           break;
