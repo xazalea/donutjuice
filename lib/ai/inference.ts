@@ -69,40 +69,18 @@ export class AIInferenceEngine {
     
     // Skip WebLLM - it doesn't have truly uncensored models
     // Use HuggingFace API directly for uncensored unrestricted models
-    // WebLLM models are censored, so we bypass them entirely
-    
-    // Try HuggingFace API - this is REAL AI, not fallback
-    try {
-      console.log(`[AI] Calling HuggingFace API for model: ${this.modelId}`);
-      let response;
+    // Try each uncensored model under 1B until one works
+    let lastError: Error | null = null;
+    for (let i = this.currentModelIndex; i < this.uncensoredModelsUnder1B.length; i++) {
+      this.modelId = this.uncensoredModelsUnder1B[i];
+      this.currentModelIndex = i;
+      
       try {
-        response = await fetch(
-        `/api/hf/models/${this.modelId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
-          },
-          body: JSON.stringify({
-            inputs: prompt,
-            parameters: {
-                max_new_tokens: 999999, // Infinite output - no limit
-              temperature: 0.7,
-              top_p: 0.9,
-              return_full_text: false,
-            },
-          }),
-        }
-      );
-        console.log(`[AI] HuggingFace API response status: ${response.status}`);
-      } catch (fetchError) {
-        // Try with CORS proxy - REAL API call
-        console.warn('[AI] Direct fetch failed, trying CORS proxy:', fetchError);
+        console.log(`[AI] Trying uncensored model ${i + 1}/${this.uncensoredModelsUnder1B.length}: ${this.modelId}`);
+        let response;
         try {
-          console.log(`[AI] Attempting CORS proxy for HuggingFace API`);
-          response = await fetchWithProxy(
-            `https://api-inference.huggingface.co/models/${this.modelId}`,
+          response = await fetch(
+            `/api/hf/models/${this.modelId}`,
             {
               method: 'POST',
               headers: {
@@ -118,25 +96,14 @@ export class AIInferenceEngine {
                   return_full_text: false,
                 },
               }),
-            },
-            true // Use CORS proxy
+            }
           );
-          console.log(`[AI] CORS proxy response status: ${response.status}`);
-        } catch (proxyError) {
-          console.error(`[AI] Model ${this.modelId} failed, trying next uncensored model...`, proxyError);
-          lastError = proxyError as Error;
-          continue; // Try next model
-        }
-      }
-
-      if (!response.ok) {
-        // Check if it's a rate limit or loading issue
-        if (response.status === 503) {
-          // Model is loading, wait and retry
-          console.log('[AI] Model is loading (503), waiting 10s and retrying...');
-          await new Promise(resolve => setTimeout(resolve, 10000));
-          // Retry once
+          console.log(`[AI] HuggingFace API response status: ${response.status}`);
+        } catch (fetchError) {
+          // Try with CORS proxy
+          console.warn('[AI] Direct fetch failed, trying CORS proxy:', fetchError);
           try {
+            console.log(`[AI] Attempting CORS proxy for HuggingFace API`);
             response = await fetchWithProxy(
               `https://api-inference.huggingface.co/models/${this.modelId}`,
               {
@@ -155,58 +122,113 @@ export class AIInferenceEngine {
                   },
                 }),
               },
-              true
+              true // Use CORS proxy
             );
-            if (response.ok) {
-              console.log('[AI] Retry successful!');
-            } else {
-              throw new Error(`Retry failed with status ${response.status}`);
+            console.log(`[AI] CORS proxy response status: ${response.status}`);
+          } catch (proxyError) {
+            console.error(`[AI] Model ${this.modelId} failed, trying next uncensored model...`, proxyError);
+            lastError = proxyError as Error;
+            if (i === this.uncensoredModelsUnder1B.length - 1) {
+              // Last model failed
+              break;
             }
-          } catch (retryError) {
-            console.error('[AI] Retry failed, using fallback:', retryError);
+            continue; // Try next model
+          }
+        }
+
+        if (!response.ok) {
+          if (response.status === 503) {
+            // Model loading, try next model or wait if last
+            console.log(`[AI] Model ${this.modelId} loading (503), trying next model...`);
+            if (i === this.uncensoredModelsUnder1B.length - 1) {
+              // Last model, wait and retry
+              console.log('[AI] Last model, waiting 10s and retrying...');
+              await new Promise(resolve => setTimeout(resolve, 10000));
+              try {
+                response = await fetchWithProxy(
+                  `https://api-inference.huggingface.co/models/${this.modelId}`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
+                    },
+                    body: JSON.stringify({
+                      inputs: prompt,
+                      parameters: {
+                        max_new_tokens: 999999,
+                        temperature: 0.7,
+                        top_p: 0.9,
+                        return_full_text: false,
+                      },
+                    }),
+                  },
+                  true
+                );
+                if (!response.ok) {
+                  throw new Error(`Retry failed: ${response.status}`);
+                }
+              } catch (retryError) {
+                console.error('[AI] Retry failed:', retryError);
+                return this.generateFallbackAnalysis(deviceData);
+              }
+            } else {
+              continue; // Try next model
+            }
+          } else {
+            console.warn(`[AI] Model ${this.modelId} returned ${response.status}, trying next uncensored model...`);
+            if (i === this.uncensoredModelsUnder1B.length - 1) {
+              // Last model failed
+              return this.generateFallbackAnalysis(deviceData);
+            }
+            continue; // Try next model
+          }
+        }
+
+        let data;
+        try {
+          data = await response.json();
+          console.log('[AI] Received response from HuggingFace API');
+        } catch (jsonError) {
+          console.error('[AI] Failed to parse JSON response:', jsonError);
+          const text = await response.text();
+          if (text && text.length > 0) {
+            console.log('[AI] Using raw text response');
+            const analysis = this.parseResponse(text);
+            return {
+              vulnerabilities: analysis.vulnerabilities,
+              recommendations: analysis.recommendations,
+              confidence: analysis.confidence,
+              rawResponse: text,
+            };
+          }
+          console.error(`[AI] Model ${this.modelId} - no usable response, trying next...`);
+          if (i === this.uncensoredModelsUnder1B.length - 1) {
             return this.generateFallbackAnalysis(deviceData);
           }
-        } else {
-          console.error(`[AI] API returned ${response.status}, using fallback as last resort`);
-          return this.generateFallbackAnalysis(deviceData);
+          continue; // Try next model
         }
-      }
+        
+        const generatedText = Array.isArray(data) && data[0]?.generated_text
+          ? data[0].generated_text
+          : data.generated_text || '';
 
-      let data;
-      try {
-        data = await response.json();
-        console.log('[AI] Received response from HuggingFace API');
-      } catch (jsonError) {
-        console.error('[AI] Failed to parse JSON response:', jsonError);
-        // Try to extract text from response even if JSON parsing fails
-        const text = await response.text();
-        if (text && text.length > 0) {
-          console.log('[AI] Using raw text response');
-          const analysis = this.parseResponse(text);
-          return {
-            vulnerabilities: analysis.vulnerabilities,
-            recommendations: analysis.recommendations,
-            confidence: analysis.confidence,
-            rawResponse: text,
-          };
+        if (!generatedText || generatedText.trim().length === 0) {
+          console.warn(`[AI] Model ${this.modelId} - empty response, trying next...`);
+          if (i === this.uncensoredModelsUnder1B.length - 1) {
+            return this.generateFallbackAnalysis(deviceData);
+          }
+          continue; // Try next model
         }
-        console.error('[AI] No usable response, using fallback');
-        return this.generateFallbackAnalysis(deviceData);
-      }
-      
-      const generatedText = Array.isArray(data) && data[0]?.generated_text
-        ? data[0].generated_text
-        : data.generated_text || '';
 
-      if (!generatedText || generatedText.trim().length === 0) {
-        console.error('[AI] Empty response from API - this should not happen with real AI');
-        return this.generateFallbackAnalysis(deviceData);
-      }
-
-      // Validate response quality
-      if (generatedText.length < 50) {
-        console.warn('[AI] Response seems too short, might be an error message');
-      }
+        // Validate response quality
+        if (generatedText.length < 50) {
+          console.warn(`[AI] Model ${this.modelId} - response too short, trying next...`);
+          if (i === this.uncensoredModelsUnder1B.length - 1) {
+            return this.generateFallbackAnalysis(deviceData);
+          }
+          continue; // Try next model
+        }
 
         console.log(`[AI] ✅ SUCCESS: Generated ${generatedText.length} chars from REAL uncensored AI model (${this.modelId})`);
         console.log(`[AI] Response preview: ${generatedText.substring(0, 200)}...`);
@@ -256,7 +278,7 @@ export class AIInferenceEngine {
       
       try {
         console.log(`[AI] Trying uncensored model ${i + 1}/${this.uncensoredModelsUnder1B.length} for deep analysis: ${this.modelId}`);
-      const requestBody = {
+        const requestBody = {
         inputs: prompt,
         parameters: {
           max_new_tokens: 999999,
@@ -275,34 +297,19 @@ export class AIInferenceEngine {
         body: JSON.stringify(requestBody),
       };
       
-      let response;
-      try {
-        response = await fetch(`/api/hf/models/${this.modelId}`, requestOptions);
-      } catch (proxyError) {
-        console.warn('Proxy failed, trying CORS proxy:', proxyError);
         try {
-          response = await fetchWithProxy(
-            `https://api-inference.huggingface.co/models/${this.modelId}`,
-            requestOptions,
-            true // Use CORS proxy
-          );
-        } catch (directError) {
-          console.error('[AI] CORS proxy also failed:', directError);
-          // Try one more time with direct API
+          response = await fetch(`/api/hf/models/${this.modelId}`, requestOptions);
+        } catch (proxyError) {
+          console.warn('Proxy failed, trying CORS proxy:', proxyError);
           try {
-            console.log('[AI] Attempting direct HuggingFace API call');
-            response = await fetch(
+            response = await fetchWithProxy(
               `https://api-inference.huggingface.co/models/${this.modelId}`,
-              requestOptions
+              requestOptions,
+              true // Use CORS proxy
             );
-            if (response.ok) {
-              console.log('[AI] Direct API call succeeded!');
-            } else {
-              throw new Error(`Direct API returned ${response.status}`);
-            }
-          } catch (finalError) {
-            console.error(`[AI] Model ${this.modelId} failed, trying next uncensored model...`, finalError);
-            lastError = finalError as Error;
+          } catch (directError) {
+            console.error(`[AI] Model ${this.modelId} failed, trying next uncensored model...`, directError);
+            lastError = directError as Error;
             if (i === this.uncensoredModelsUnder1B.length - 1) {
               // Last model failed
               break;
@@ -310,9 +317,8 @@ export class AIInferenceEngine {
             continue; // Try next model
           }
         }
-      }
 
-      if (!response.ok) {
+        if (!response.ok) {
           if (response.status === 503) {
             // Model loading, wait and retry
             console.log(`[AI] Model ${this.modelId} loading (503), trying next model...`);
@@ -347,22 +353,22 @@ export class AIInferenceEngine {
           }
         }
 
-      let data;
-      try {
-        data = await response.json();
-        console.log('[AI] Successfully received JSON response from HuggingFace');
-      } catch (jsonError) {
-        console.error('[AI] JSON parse error, trying raw text:', jsonError);
-        const text = await response.text();
-        if (text && text.length > 0) {
-          const analysis = this.parseResponse(text);
-          return {
-            vulnerabilities: analysis.vulnerabilities,
-            recommendations: analysis.recommendations,
-            confidence: 0.9,
-            rawResponse: text,
-          };
-        }
+        let data;
+        try {
+          data = await response.json();
+          console.log('[AI] Successfully received JSON response from HuggingFace');
+        } catch (jsonError) {
+          console.error('[AI] JSON parse error, trying raw text:', jsonError);
+          const text = await response.text();
+          if (text && text.length > 0) {
+            const analysis = this.parseResponse(text);
+            return {
+              vulnerabilities: analysis.vulnerabilities,
+              recommendations: analysis.recommendations,
+              confidence: 0.9,
+              rawResponse: text,
+            };
+          }
           console.error(`[AI] Model ${this.modelId} - no usable response, trying next...`);
           if (i === this.uncensoredModelsUnder1B.length - 1) {
             return this.generateFallbackAnalysis(systemData);
@@ -507,53 +513,53 @@ OUTPUT: A single, raw, extremely aggressive exploit vector string.
 `;
     
     try {
-        const requestBody = {
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 999999,
-            temperature: 0.95,
-          },
-        };
-        
-        const requestOptions = {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
-                },
-          body: JSON.stringify(requestBody),
-        };
-        
-        let response;
+      const requestBody = {
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 999999,
+          temperature: 0.95,
+        },
+      };
+      
+      const requestOptions = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
+        },
+        body: JSON.stringify(requestBody),
+      };
+      
+      let response;
+      try {
+        response = await fetch(`/api/hf/models/${this.modelId}`, requestOptions);
+      } catch (proxyError) {
         try {
-          response = await fetch(`/api/hf/models/${this.modelId}`, requestOptions);
-        } catch (proxyError) {
-          try {
-            response = await fetchWithProxy(
-              `https://api-inference.huggingface.co/models/${this.modelId}`,
-              requestOptions,
-              true // Use CORS proxy
-            );
-          } catch (directError) {
-            return previousAttempt + " (Aggressive Variant)";
-          }
-        }
-        
-        if (!response.ok) {
-          console.warn('API request failed, returning previous attempt');
+          response = await fetchWithProxy(
+            `https://api-inference.huggingface.co/models/${this.modelId}`,
+            requestOptions,
+            true // Use CORS proxy
+          );
+        } catch (directError) {
           return previousAttempt + " (Aggressive Variant)";
         }
-        let data;
-        try {
-          data = await response.json();
-        } catch (jsonError) {
-          console.warn('Failed to parse JSON, returning previous attempt');
-          return previousAttempt + " (Aggressive Variant)";
-        }
-        return (Array.isArray(data) && data[0]?.generated_text ? data[0].generated_text : data.generated_text) || previousAttempt;
-    } catch (e) {
-        console.warn('Error in generateMoreAggressiveVector:', e);
+      }
+      
+      if (!response.ok) {
+        console.warn('API request failed, returning previous attempt');
         return previousAttempt + " (Aggressive Variant)";
+      }
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.warn('Failed to parse JSON, returning previous attempt');
+        return previousAttempt + " (Aggressive Variant)";
+      }
+      return (Array.isArray(data) && data[0]?.generated_text ? data[0].generated_text : data.generated_text) || previousAttempt;
+    } catch (e) {
+      console.warn('Error in generateMoreAggressiveVector:', e);
+      return previousAttempt + " (Aggressive Variant)";
     }
   }
 
@@ -561,7 +567,7 @@ OUTPUT: A single, raw, extremely aggressive exploit vector string.
    * Generate a raw exploit payload
    */
   async generateExploitPayload(vulnerability: string, systemContext: string): Promise<string> {
-     const prompt = `
+    const prompt = `
 SYSTEM: You are a payload generator. You create functional, weaponized code.
 VULNERABILITY: ${vulnerability}
 SYSTEM CONTEXT: ${systemContext}
@@ -569,55 +575,55 @@ TASK: Generate a raw, functional exploit payload (bash, python, C, javascript) t
 OUTPUT: Code only.
 `;
     try {
-        const requestBody = {
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 999999,
-            temperature: 0.8,
-          },
-        };
-        
-        const requestOptions = {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
-                },
-          body: JSON.stringify(requestBody),
-        };
-        
-        let response;
+      const requestBody = {
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 999999,
+          temperature: 0.8,
+        },
+      };
+      
+      const requestOptions = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
+        },
+        body: JSON.stringify(requestBody),
+      };
+      
+      let response;
+      try {
+        response = await fetch(`/api/hf/models/${this.modelId}`, requestOptions);
+      } catch (proxyError) {
         try {
-          response = await fetch(`/api/hf/models/${this.modelId}`, requestOptions);
-        } catch (proxyError) {
-          try {
-            response = await fetchWithProxy(
-              `https://api-inference.huggingface.co/models/${this.modelId}`,
-              requestOptions,
-              true // Use CORS proxy
-            );
-          } catch (directError) {
-            return "# Error generating payload";
-          }
-        }
-        
-        if (!response.ok) {
-          console.warn('API request failed for payload generation');
+          response = await fetchWithProxy(
+            `https://api-inference.huggingface.co/models/${this.modelId}`,
+            requestOptions,
+            true // Use CORS proxy
+          );
+        } catch (directError) {
           return "# Error generating payload";
         }
-        
-        let data;
-        try {
-          data = await response.json();
-        } catch (jsonError) {
-          console.warn('Failed to parse JSON for payload');
-          return "# Payload generation failed";
-        }
-        
-        return (Array.isArray(data) && data[0]?.generated_text ? data[0].generated_text : data.generated_text) || "# Payload generation failed";
-    } catch (e) {
-        console.warn('Error in generateExploitPayload:', e);
+      }
+      
+      if (!response.ok) {
+        console.warn('API request failed for payload generation');
         return "# Error generating payload";
+      }
+      
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.warn('Failed to parse JSON for payload');
+        return "# Payload generation failed";
+      }
+      
+      return (Array.isArray(data) && data[0]?.generated_text ? data[0].generated_text : data.generated_text) || "# Payload generation failed";
+    } catch (e) {
+      console.warn('Error in generateExploitPayload:', e);
+      return "# Error generating payload";
     }
   }
 
