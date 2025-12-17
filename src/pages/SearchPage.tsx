@@ -31,7 +31,6 @@ export function SearchPage() {
 
   useEffect(() => {
     let mounted = true
-    const currentLogs: string[] = []
 
     // Log function for future use
     // const addLog = (text: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
