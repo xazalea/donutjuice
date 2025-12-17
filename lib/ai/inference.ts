@@ -125,7 +125,6 @@ export class AIInferenceEngine {
             console.log(`[AI] CORS proxy response status: ${response.status}`);
           } catch (proxyError) {
             console.error(`[AI] Model ${this.modelId} failed, trying next uncensored model...`, proxyError);
-            lastError = proxyError as Error;
             if (i === this.uncensoredModelsUnder1B.length - 1) {
               // Last model failed
               break;
