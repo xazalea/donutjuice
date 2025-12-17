@@ -90,23 +90,52 @@ export class AIInferenceEngine {
       try {
         response = await fetch(
           `/api/hf/models/${this.modelId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
-          },
-          body: JSON.stringify({
-            inputs: prompt,
-            parameters: {
-              max_new_tokens: 999999, // Infinite output - no limit
-              temperature: 0.7,
-              top_p: 0.9,
-              return_full_text: false,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
             },
-          }),
+            body: JSON.stringify({
+              inputs: prompt,
+              parameters: {
+                max_new_tokens: 999999, // Infinite output - no limit
+                temperature: 0.7,
+                top_p: 0.9,
+                return_full_text: false,
+              },
+            }),
+          }
+        );
+      } catch (fetchError) {
+        // Try with CORS proxy
+        console.warn('Direct fetch failed, trying CORS proxy:', fetchError);
+        try {
+          response = await fetchWithProxy(
+            `https://api-inference.huggingface.co/models/${this.modelId}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
+              },
+              body: JSON.stringify({
+                inputs: prompt,
+                parameters: {
+                  max_new_tokens: 999999,
+                  temperature: 0.7,
+                  top_p: 0.9,
+                  return_full_text: false,
+                },
+              }),
+            },
+            true // Use CORS proxy
+          );
+        } catch (proxyError) {
+          console.warn('CORS proxy also failed, using fallback:', proxyError);
+          return this.generateFallbackAnalysis(deviceData);
         }
-      );
+      }
 
       if (!response.ok) {
         console.warn(`API returned ${response.status}, using intelligent fallback`);
