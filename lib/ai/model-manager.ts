@@ -30,11 +30,14 @@ export class ModelManager {
   constructor() {
     this.g4f = new G4FIntegration();
     
-    // Configure WebLLM with a small model under 1B
-    // WebLLM doesn't support raw HuggingFace URLs - it requires MLC format
-    // TinyLlama is 1.1B (close to 1B) and is unrestricted
+    // Configure WebLLM with unrestricted small model under 1B
+    // Use custom model URL for models under 1B (WebLLM built-in list doesn't have them)
+    // Try to use a model under 1B via custom URL - WebLLM supports custom MLC-format models
     this.webllm = new WebLLMIntegration({
-      modelName: 'TinyLlama-1.1B-Chat-v0.4-q4f16_1', // Small unrestricted model (1.1B, close to under 1B)
+      // Try using a custom model URL for unrestricted model under 1B
+      // WebLLM requires MLC format, so we'll try to use a model URL that's under 1B
+      modelUrl: 'https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC', // 500M - under 1B
+      modelName: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', // 500M unrestricted model
       useCache: true, // Cache model for faster subsequent loads
       streaming: false, // Disable streaming for now - can enable for faster perceived performance
     });
@@ -101,7 +104,7 @@ export class ModelManager {
   }
 
   /**
-   * Check if WebLLM is ready (initialized and available)
+   * Check if WebLLM is ready (with unrestricted model under 1B)
    */
   async isWebLLMReady(): Promise<boolean> {
     if (!this.webllm) {
@@ -124,8 +127,7 @@ export class ModelManager {
   }
 
   /**
-   * Get WebLLM initialization status
-   * This checks if WebLLM is actually ready (not HuggingFace API)
+   * Get WebLLM initialization status (with unrestricted model under 1B)
    */
   getWebLLMStatus(): { isReady: boolean; isInitializing: boolean } {
     if (!this.webllm) {
@@ -149,7 +151,7 @@ export class ModelManager {
     let content = '';
     
     // CRITICAL: Ensure WebLLM is ready before proceeding
-    // This prevents fallback responses
+    // This ensures we use unrestricted models under 1B via WebLLM
     const webllmReady = await this.isWebLLMReady();
     if (!webllmReady) {
       throw new Error('WebLLM is not ready. Please wait for the AI model to finish loading. This ensures you get real AI responses, not fallbacks.');

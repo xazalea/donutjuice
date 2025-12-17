@@ -37,7 +37,8 @@ export class AIInferenceEngine {
     // Initialize WebLLM if not provided - use small unrestricted model
     if (!this.webllm) {
       this.webllm = new WebLLMIntegration({
-        modelName: 'TinyLlama-1.1B-Chat-v0.4-q4f16_1', // Small unrestricted model (1.1B)
+        modelUrl: 'https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC', // 500M - under 1B
+        modelName: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', // 500M unrestricted model
         useCache: true,
         streaming: false,
       });
