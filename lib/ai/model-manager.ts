@@ -100,8 +100,52 @@ export class ModelManager {
     return this.reasoner;
   }
 
+  /**
+   * Check if WebLLM is ready (initialized and available)
+   */
+  async isWebLLMReady(): Promise<boolean> {
+    if (!this.webllm) {
+      return false;
+    }
+    
+    // If already available, return true
+    if (this.webllm.isAvailable()) {
+      return true;
+    }
+    
+    // Try to initialize if not already initializing
+    try {
+      await this.webllm.initialize();
+      return this.webllm.isAvailable();
+    } catch (error) {
+      console.warn('[ModelManager] WebLLM initialization check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get WebLLM initialization status
+   */
+  getWebLLMStatus(): { isReady: boolean; isInitializing: boolean } {
+    if (!this.webllm) {
+      return { isReady: false, isInitializing: false };
+    }
+    
+    return {
+      isReady: this.webllm.isAvailable(),
+      isInitializing: (this.webllm as any).isInitializing || false,
+    };
+  }
+
   async chat(message: string, systemPrompt: string): Promise<ChatResult> {
     let content = '';
+    
+    // CRITICAL: Ensure WebLLM is ready before proceeding
+    // This prevents fallback responses
+    const webllmReady = await this.isWebLLMReady();
+    if (!webllmReady) {
+      throw new Error('WebLLM is not ready. Please wait for the AI model to finish loading. This ensures you get real AI responses, not fallbacks.');
+    }
     
     // Store user message in memory
     this.memory.store(message, { role: 'user' }, ['chat', 'user']);
@@ -115,39 +159,22 @@ export class ModelManager {
     try {
       if (this.currentModelId === 'qwen-webllm') {
         // Use WebLLM with Qwen model
-        // Ensure it's initialized (will initialize if not already)
+        // At this point, WebLLM should be ready (checked above)
         if (!this.webllm.isAvailable()) {
-          try {
-            await this.webllm.initialize();
-          } catch (initError) {
-            console.warn('WebLLM init failed, using fallback:', initError);
-            // Fallback to Donut model
-            const combinedPrompt = isExploitQuery
-              ? ExploitPrompts.buildChromeOSExploitPrompt(message)
-              : `${systemPrompt}\n\nUser: ${message}\nAssistant:`;
-            const result = await this.donutEngine.analyzeSystemDeeply(combinedPrompt, 'Chat Context');
-            content = result.rawResponse || result.vulnerabilities.join('\n');
+          // Double-check and try to initialize
+          await this.webllm.initialize();
+          if (!this.webllm.isAvailable()) {
+            throw new Error('WebLLM failed to initialize. Please refresh the page and wait for the model to load.');
           }
         }
         
-        if (this.webllm.isAvailable()) {
-          console.log('[ModelManager] Using REAL WebLLM AI model');
-          const enhancedPrompt = isExploitQuery 
-            ? ExploitPrompts.buildChromeOSExploitPrompt(message)
-            : systemPrompt;
-          const result = await this.webllm.chat(message, enhancedPrompt);
-          content = result.content;
-          console.log(`[ModelManager] WebLLM REAL AI response: ${result.responseTime}ms, ${result.content.length} chars`);
-        } else {
-          // Fallback to Donut (also REAL AI)
-          console.log('[ModelManager] WebLLM not available, using Donut REAL AI model');
-          const combinedPrompt = isExploitQuery
-            ? ExploitPrompts.buildChromeOSExploitPrompt(message)
-            : `${systemPrompt}\n\nUser: ${message}\nAssistant:`;
-          const result = await this.donutEngine.analyzeSystemDeeply(combinedPrompt, 'Chat Context');
-          content = result.rawResponse || result.vulnerabilities.join('\n');
-          console.log(`[ModelManager] Donut REAL AI response: ${content.length} chars`);
-        }
+        console.log('[ModelManager] Using REAL WebLLM AI model');
+        const enhancedPrompt = isExploitQuery 
+          ? ExploitPrompts.buildChromeOSExploitPrompt(message)
+          : systemPrompt;
+        const result = await this.webllm.chat(message, enhancedPrompt);
+        content = result.content;
+        console.log(`[ModelManager] WebLLM REAL AI response: ${result.responseTime}ms, ${result.content.length} chars`);
       } else if (this.currentModelId === 'dual-model' || (this.useDualModel && isExploitQuery)) {
         // Use both REAL models for consensus
         console.log('[ModelManager] Using DUAL REAL AI models for consensus');

@@ -24,7 +24,7 @@ export interface WebLLMResult {
 export class WebLLMIntegration {
   private engine: any = null;
   private isInitialized: boolean = false;
-  private isInitializing: boolean = false;
+  public isInitializing: boolean = false; // Public so ModelManager can check
   private modelName: string = 'TinyLlama-1.1B-Chat-v0.4-q4f16_1'; // Default to a model that exists
   private config: WebLLMConfig;
   private initPromise: Promise<void> | null = null;

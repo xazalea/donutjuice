@@ -12,7 +12,40 @@ export function StartPage() {
   const [modelManager] = useState(() => new ModelManager())
   const [currentModel, setCurrentModel] = useState(modelManager.getCurrentModel().id)
   const [isLoading, setIsLoading] = useState(false)
+  const [webllmReady, setWebllmReady] = useState(false)
+  const [webllmInitializing, setWebllmInitializing] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Check WebLLM status on mount and periodically
+  useEffect(() => {
+    const checkWebLLMStatus = async () => {
+      const status = modelManager.getWebLLMStatus()
+      setWebllmInitializing(status.isInitializing)
+      
+      if (!status.isReady) {
+        // Try to initialize WebLLM
+        const ready = await modelManager.isWebLLMReady()
+        setWebllmReady(ready)
+        setWebllmInitializing(false)
+      } else {
+        setWebllmReady(true)
+        setWebllmInitializing(false)
+      }
+    }
+
+    checkWebLLMStatus()
+    
+    // Check periodically until ready
+    const interval = setInterval(() => {
+      if (!webllmReady) {
+        checkWebLLMStatus()
+      } else {
+        clearInterval(interval)
+      }
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [modelManager, webllmReady])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -20,6 +53,16 @@ export function StartPage() {
 
   const handleSend = async () => {
     if (!message.trim() || isLoading) return
+    
+    // Block if WebLLM is not ready
+    if (!webllmReady) {
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: '⏳ Please wait while the AI model is loading... This ensures you get real AI responses, not fallbacks. The model will be ready shortly!' 
+      }])
+      return
+    }
+    
     const userMsg = message
     setMessage('')
     setMessages(prev => [...prev, { role: 'user', content: userMsg }])
@@ -165,12 +208,30 @@ Be friendly, beginner-friendly, and explain security concepts clearly. Reference
               value={message}
               onChange={e => setMessage(e.target.value)}
               onKeyPress={e => e.key === 'Enter' && handleSend()}
-              placeholder="Describe the vulnerability or exploit you want to find (e.g., 'buffer overflow in kernel', 'privilege escalation')..."
+              placeholder={webllmReady 
+                ? "Describe the vulnerability or exploit you want to find (e.g., 'buffer overflow in kernel', 'privilege escalation')..."
+                : "⏳ Loading AI model... Please wait..."
+              }
+              disabled={!webllmReady || isLoading}
             />
-            <button className="send-btn" onClick={handleSend} disabled={isLoading}>
+            <button 
+              className="send-btn" 
+              onClick={handleSend} 
+              disabled={!webllmReady || isLoading || !message.trim()}
+              title={!webllmReady ? "Waiting for AI model to load..." : ""}
+            >
               {isLoading ? <Loader2 size={18} className="spinning" /> : <Send size={18} />}
             </button>
           </div>
+          {!webllmReady && (
+            <div className="webllm-loading-notice">
+              {webllmInitializing ? (
+                <span>🔄 Initializing AI model (WebLLM)... This may take a moment on first load.</span>
+              ) : (
+                <span>⏳ Waiting for AI model to be ready...</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
       <ModelLoadingIndicator modelManager={modelManager} />
