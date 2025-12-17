@@ -8,20 +8,20 @@ import {
   Search, Code, CheckCircle, Zap, Brain, FileCode, 
   AlertCircle, Shield, Lock, Unlock, Key, Terminal,
   Cpu, HardDrive, Network, Database, Settings, 
-  Play, Pause, Stop, RefreshCw, Download, Upload,
+  Play, Pause, Square, RefreshCw, Download, Upload,
   Info, HelpCircle, AlertTriangle, X, Plus, Minus,
   ArrowRight, ArrowLeft, ArrowUp, ArrowDown, Star,
   Heart, ThumbsUp, ThumbsDown, MessageSquare, Send,
-  Eye, EyeOff, Filter, List, Grid, Calendar, Clock
+  Eye, EyeOff, Filter, List, Grid, Calendar, Clock,
+  type LucideIcon
 } from 'lucide-react';
 
 export interface EmojiIconMap {
-  [emoji: string]: React.ComponentType<{ size?: number; className?: string }>;
+  [emoji: string]: LucideIcon;
 }
 
 export const EMOJI_TO_ICON: EmojiIconMap = {
   '🔍': Search,
-  '💻': Code,
   '✅': CheckCircle,
   '⚡': Zap,
   '🧠': Brain,
@@ -36,16 +36,14 @@ export const EMOJI_TO_ICON: EmojiIconMap = {
   '💾': HardDrive,
   '🌐': Network,
   '🗄️': Database,
-  '⚙️': Settings,
   '▶️': Play,
   '⏸️': Pause,
-  '⏹️': Stop,
+  '⏹️': Square,
   '🔄': RefreshCw,
   '⬇️': Download,
   '⬆️': Upload,
   'ℹ️': Info,
   '❓': HelpCircle,
-  '⚠️': AlertTriangle,
   '❌': X,
   '➕': Plus,
   '➖': Minus,
@@ -61,9 +59,7 @@ export const EMOJI_TO_ICON: EmojiIconMap = {
   '📤': Send,
   '👁️': Eye,
   '👁️‍🗨️': EyeOff,
-  '🔍': Filter,
   '📋': List,
-  '⊞': Grid,
   '📅': Calendar,
   '🕐': Clock,
   '🤔': Brain,
@@ -95,12 +91,12 @@ export function replaceEmojisWithIcons(text: string, iconSize: number = 16): Rea
     const IconComponent = EMOJI_TO_ICON[emoji];
     if (IconComponent) {
       parts.push(
-        <IconComponent 
-          key={`emoji-${match.index}`} 
-          size={iconSize} 
-          className="inline-icon"
-          style={{ verticalAlign: 'middle', margin: '0 2px' }}
-        />
+        React.createElement(IconComponent, {
+          key: `emoji-${match.index}`,
+          size: iconSize,
+          className: 'inline-icon',
+          style: { verticalAlign: 'middle', margin: '0 2px' }
+        })
       );
     } else {
       // Keep emoji if no icon mapping
@@ -129,4 +125,3 @@ export function replaceEmojisInString(text: string): string {
   }
   return result;
 }
-
