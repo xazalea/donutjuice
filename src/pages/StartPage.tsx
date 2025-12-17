@@ -97,9 +97,7 @@ YOUR JOB:
 Be friendly, beginner-friendly, and explain security concepts clearly. Reference chromebook-utilities.pages.dev techniques when relevant.`
       
       // Streaming callback for real-time updates
-      let streamedContent = ''
-      const onStream = (chunk: string, fullContent: string) => {
-        streamedContent = fullContent
+      const onStream = (_chunk: string, fullContent: string) => {
         setAiStatus('✍️ Generating response...')
         // Update the assistant message in real-time
         setMessages(prev => {
@@ -290,6 +288,12 @@ Be friendly, beginner-friendly, and explain security concepts clearly. Reference
               {isLoading ? <Loader2 size={18} className="spinning" /> : <Send size={18} />}
             </button>
           </div>
+          {aiStatus && (
+            <div className="ai-status-indicator">
+              <Loader2 size={14} className="spinning" />
+              <span>{aiStatus}</span>
+            </div>
+          )}
           {!webllmReady && (
             <div className="webllm-loading-notice">
               {webllmInitializing ? (

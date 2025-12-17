@@ -373,7 +373,7 @@ export class WebLLMIntegration {
    * WebLLM uses chat.completions.create with stream: true
    */
   private async chatStreaming(
-    messages: any[],
+    _messages: any[],
     options: any,
     startTime: number,
     onStream?: StreamCallback
