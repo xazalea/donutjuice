@@ -30,25 +30,23 @@ export class WebLLMIntegration {
   private initPromise: Promise<void> | null = null;
   private modelCache: Map<string, any> = new Map();
 
-  // Custom model configurations
   // Custom model configurations (for future use)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private customModels: Record<string, { url: string; config: any }> = {
-    'qwen-uncensored-v2': {
-      url: 'https://huggingface.co/tensorblock/Qwen-uncensored-v2-GGUF/resolve/main',
-      config: {
-        model: 'Qwen/Qwen2.5-7B-Instruct-q4f16_1-MLC',
-        quantization: 'q4f16_1',
-      },
-    },
-    'qwen-uncensored-v2-gguf': {
-      url: 'https://huggingface.co/tensorblock/Qwen-uncensored-v2-GGUF',
-      config: {
-        model: 'Qwen/Qwen2.5-7B-Instruct-q4f16_1-MLC',
-        quantization: 'q4f16_1',
-      },
-    },
-  };
+  // private customModels: Record<string, { url: string; config: any }> = {
+  //   'qwen-uncensored-v2': {
+  //     url: 'https://huggingface.co/tensorblock/Qwen-uncensored-v2-GGUF/resolve/main',
+  //     config: {
+  //       model: 'Qwen/Qwen2.5-7B-Instruct-q4f16_1-MLC',
+  //       quantization: 'q4f16_1',
+  //     },
+  //   },
+  //   'qwen-uncensored-v2-gguf': {
+  //     url: 'https://huggingface.co/tensorblock/Qwen-uncensored-v2-GGUF',
+  //     config: {
+  //       model: 'Qwen/Qwen2.5-7B-Instruct-q4f16_1-MLC',
+  //       quantization: 'q4f16_1',
+  //     },
+  //   },
+  // };
 
   constructor(config?: WebLLMConfig) {
     this.config = {

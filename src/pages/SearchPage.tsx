@@ -17,7 +17,6 @@ export function SearchPage() {
     const finder = new PersistentExploitFinder(manager, (progress) => {
       setAttempt(progress.attempt);
       setStatus(progress.status);
-      setCurrentSource(progress.currentSource);
       const logMsg = `[Attempt ${progress.attempt}] ${progress.message}`;
       setLogs(prev => [...prev, logMsg]);
       if (containerRef.current) {
@@ -34,16 +33,17 @@ export function SearchPage() {
     let mounted = true
     const currentLogs: string[] = []
 
-    const addLog = (text: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
-      if (!mounted) return
-      const prefix = type === 'success' ? '✓' : type === 'warning' ? '⚠' : type === 'error' ? '✗' : '→'
-      const logText = `${prefix} ${text}`
-      setLogs(prev => [...prev, logText])
-      currentLogs.push(logText)
-      if (containerRef.current) {
-        containerRef.current.scrollTop = containerRef.current.scrollHeight
-      }
-    }
+    // Log function for future use
+    // const addLog = (text: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
+    //   if (!mounted) return
+    //   const prefix = type === 'success' ? '✓' : type === 'warning' ? '⚠' : type === 'error' ? '✗' : '→'
+    //   const logText = `${prefix} ${text}`
+    //   setLogs(prev => [...prev, logText])
+    //   currentLogs.push(logText)
+    //   if (containerRef.current) {
+    //     containerRef.current.scrollTop = containerRef.current.scrollHeight
+    //   }
+    // }
 
     const runPersistentSearch = async () => {
       try {
