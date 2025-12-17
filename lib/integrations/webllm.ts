@@ -306,10 +306,15 @@ export class WebLLMIntegration {
    * Chat with the model - optimized for speed with streaming support
    * This uses REAL AI models running locally via WebLLM
    */
-  async chat(message: string, systemPrompt?: string, onStream?: StreamCallback): Promise<WebLLMResult> {
+  async chat(message: string, systemPrompt?: string, onStream?: StreamCallback, abortSignal?: AbortSignal): Promise<WebLLMResult> {
     const startTime = Date.now();
     
     console.log('[WebLLM] Starting chat with real AI model:', this.modelName);
+    
+    // Check for abort
+    if (abortSignal?.aborted) {
+      throw new Error('Request aborted by user');
+    }
     
     // Ensure initialized
     if (!this.isInitialized) {
@@ -342,7 +347,7 @@ export class WebLLMIntegration {
 
       // Use streaming if enabled for faster perceived performance
       if (this.config.streaming || onStream) {
-        return this.chatStreaming(messages, chatOptions, startTime, onStream);
+        return this.chatStreaming(messages, chatOptions, startTime, onStream, abortSignal);
       }
 
       // Non-streaming fallback
@@ -376,10 +381,17 @@ export class WebLLMIntegration {
     _messages: any[],
     options: any,
     startTime: number,
-    onStream?: StreamCallback
+    onStream?: StreamCallback,
+    abortSignal?: AbortSignal
   ): Promise<WebLLMResult> {
     return new Promise(async (resolve, reject) => {
       let fullContent = '';
+      
+      // Check for abort
+      if (abortSignal?.aborted) {
+        reject(new Error('Request aborted by user'));
+        return;
+      }
       
       try {
         // WebLLM streaming: use chat.completions.create with stream: true
@@ -390,6 +402,12 @@ export class WebLLMIntegration {
         
         // Process streaming chunks (WebLLM returns async iterator)
         for await (const chunk of stream) {
+          // Check for abort during streaming
+          if (abortSignal?.aborted) {
+            reject(new Error('Request aborted by user'));
+            return;
+          }
+          
           if (chunk && chunk.choices && chunk.choices[0]) {
             const delta = chunk.choices[0].delta?.content || '';
             if (delta) {

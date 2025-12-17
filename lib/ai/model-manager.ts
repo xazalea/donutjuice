@@ -149,7 +149,7 @@ export class ModelManager {
     };
   }
 
-  async chat(message: string, systemPrompt: string, onStream?: StreamCallback): Promise<ChatResult> {
+  async chat(message: string, systemPrompt: string, onStream?: StreamCallback, abortSignal?: AbortSignal): Promise<ChatResult> {
     let content = '';
     
     // CRITICAL: Ensure WebLLM is ready before proceeding
@@ -157,6 +157,11 @@ export class ModelManager {
     const webllmReady = await this.isWebLLMReady();
     if (!webllmReady) {
       throw new Error('WebLLM is not ready. Please wait for the AI model to finish loading. This ensures you get real AI responses, not fallbacks.');
+    }
+    
+    // Check for abort
+    if (abortSignal?.aborted) {
+      throw new Error('Request aborted by user');
     }
     
     // Store user message in memory
@@ -167,12 +172,17 @@ export class ModelManager {
                           message.toLowerCase().includes('vulnerability') ||
                           message.toLowerCase().includes('chromeos') ||
                           message.toLowerCase().includes('unenrollment');
+    
+    // DO NOT scan codebase during chat phase - that happens during analysis
+    // The chat phase is only for understanding the user's query quickly
+    // Codebase scanning happens in PersistentExploitFinder.findExploit()
+    const enhancedSystemPrompt = systemPrompt;
 
     try {
       // Prefer WebLLM for unrestricted models under 1B
       if (this.webllm && this.webllm.isAvailable()) {
         console.log('[ModelManager] Using WebLLM REAL AI with unrestricted model under 1B (streaming enabled)...');
-        const result = await this.webllm.chat(message, systemPrompt, onStream);
+        const result = await this.webllm.chat(message, enhancedSystemPrompt, onStream, abortSignal);
         content = result.content;
         console.log(`[ModelManager] WebLLM REAL AI response: ${content.length} chars`);
         return { content, model: 'qwen-webllm' };

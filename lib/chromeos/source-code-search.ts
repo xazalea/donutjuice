@@ -40,6 +40,77 @@ export class ChromeOSSourceCodeSearch {
   }
 
   /**
+   * Scan the ENTIRE ChromeOS codebase for comprehensive context
+   * This performs multiple searches across all major components
+   */
+  async scanEntireCodebase(query: string, onProgress?: (progress: string) => void): Promise<string> {
+    onProgress?.('🔍 Scanning entire ChromeOS codebase...');
+    
+    const allResults: SourceCodeResult[] = [];
+    const components = [
+      'kernel', 'browser', 'login', 'enrollment', 'policy', 'cryptohome',
+      'firmware', 'boot', 'recovery', 'oobe', 'tpm', 'security',
+      'network', 'filesystem', 'system', 'chrome', 'ash', 'platform'
+    ];
+    
+    // Search across all major components
+    for (const component of components) {
+      onProgress?.(`Scanning ${component} component...`);
+      try {
+        const results = await this.searchSourceCode(query, {
+          maxResults: 50,
+          component,
+        });
+        allResults.push(...results);
+      } catch (error) {
+        console.warn(`Failed to scan ${component}:`, error);
+      }
+    }
+    
+    // Also search Chromium codebase
+    onProgress?.('Scanning Chromium codebase...');
+    try {
+      const chromiumResults = await this.searchChromiumSource(query, {
+        maxResults: 50,
+      });
+      allResults.push(...chromiumResults);
+    } catch (error) {
+      console.warn('Failed to scan Chromium:', error);
+    }
+    
+    // Build comprehensive context string
+    const contextParts: string[] = [];
+    contextParts.push(`=== CHROMEOS CODEBASE SCAN RESULTS ===`);
+    contextParts.push(`Query: ${query}`);
+    contextParts.push(`Total Results: ${allResults.length}`);
+    contextParts.push('');
+    
+    // Group by component
+    const byComponent: Record<string, SourceCodeResult[]> = {};
+    for (const result of allResults) {
+      const component = result.path.split('/')[0] || 'unknown';
+      if (!byComponent[component]) {
+        byComponent[component] = [];
+      }
+      byComponent[component].push(result);
+    }
+    
+    for (const [component, results] of Object.entries(byComponent)) {
+      contextParts.push(`\n## Component: ${component} (${results.length} results)`);
+      for (const result of results.slice(0, 10)) { // Limit per component
+        contextParts.push(`\n### File: ${result.file}`);
+        contextParts.push(`Path: ${result.path}`);
+        contextParts.push(`Line: ${result.lineNumber}`);
+        contextParts.push(`Code:\n\`\`\`\n${result.code}\n\`\`\``);
+        contextParts.push(`URL: ${result.url}`);
+      }
+    }
+    
+    onProgress?.('Codebase scan complete!');
+    return contextParts.join('\n');
+  }
+
+  /**
    * Search ChromeOS source code for exploit patterns
    * Enhanced with AI analysis using WebLLM and Bellum
    */

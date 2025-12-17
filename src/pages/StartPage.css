@@ -303,6 +303,30 @@
   cursor: not-allowed;
 }
 
+.stop-btn {
+  border: none;
+  background: #ef4444;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.stop-btn:hover {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+.stop-btn:active {
+  transform: scale(0.95);
+}
+
 .spinning {
   animation: spin 1s linear infinite;
 }

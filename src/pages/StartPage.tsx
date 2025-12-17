@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Send, Terminal, Loader2 } from 'lucide-react'
+import { Send, Terminal, Loader2, X, Search, Code, CheckCircle, Zap, Brain, FileCode } from 'lucide-react'
 import { ModelManager } from '@lib/ai/model-manager'
 import { ModelLoadingIndicator } from '../components/ModelLoadingIndicator'
 import './StartPage.css'
@@ -15,6 +15,7 @@ export function StartPage() {
   const [webllmReady, setWebllmReady] = useState(false)
   const [webllmInitializing, setWebllmInitializing] = useState(true)
   const [aiStatus, setAiStatus] = useState<string>('') // Current AI activity status
+  const [abortController, setAbortController] = useState<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Check WebLLM status on mount and periodically
@@ -58,6 +59,16 @@ export function StartPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  const handleStop = () => {
+    if (abortController) {
+      abortController.abort()
+      setAbortController(null)
+      setIsLoading(false)
+      setAiStatus('Stopped')
+      setTimeout(() => setAiStatus(''), 1000)
+    }
+  }
+
   const handleSend = async () => {
     if (!message.trim() || isLoading) return
     
@@ -68,37 +79,47 @@ export function StartPage() {
       return
     }
     
+    // Create abort controller for this request
+    const controller = new AbortController()
+    setAbortController(controller)
+    
     const userMsg = message
     setMessage('')
     setMessages(prev => [...prev, { role: 'user', content: userMsg }])
     setIsLoading(true)
-    setAiStatus('🤔 Thinking...')
+    setAiStatus('Thinking...')
 
     // Add assistant message placeholder for streaming
     const assistantMessageIndex = messages.length + 1
     setMessages(prev => [...prev, { role: 'assistant', content: '', model: 'streaming' }])
 
     try {
-      const systemPrompt = `You are an advanced ChromeOS security research assistant powered by multiple AI models (Donut-2.5, Qwen-uncensored-v2 via WebLLM, and Bellum/Nacho).
+      const systemPrompt = `You are a concise ChromeOS security research assistant. Your ONLY job is to quickly understand what the user wants to find.
 
-CAPABILITIES:
-- Dual-model analysis: Uses both Donut-2.5 and Qwen-uncensored-v2 models for consensus
-- Bellum/Nacho integration: Leverages Bellum's VM-based analysis and Nacho utilities
-- Enhanced prompting: Specialized prompts based on chromebook-utilities.pages.dev techniques
-- Real ChromeOS source code search: Searches https://source.chromium.org/chromiumos/chromiumos/codesearch/
+BE CONCISE:
+- Keep responses SHORT (1-2 sentences max)
+- Ask ONE clarifying question if needed
+- Once you understand, confirm briefly and tell them to click "Start Analysis"
+- NO codebase scanning here (that happens during analysis)
+- NO long explanations
+- NO exploit details yet
 
-YOUR JOB:
-- Help users find vulnerabilities in ChromeOS source code
-- When users describe a vulnerability or exploit, help refine their search query
-- Explain ChromeOS vulnerability types (OOBE bypass, unenrollment, kernel exploits, etc.)
-- Once you understand what they're looking for, tell them to click "Start Analysis"
-- The analysis uses multiple AI models and Bellum to find exploits and generate detailed guides
+EXAMPLES:
+User: "Find me an unenrollment exploit"
+You: "I'll search for ChromeOS unenrollment vulnerabilities. Click 'Start Analysis' when ready."
 
-Be friendly, beginner-friendly, and explain security concepts clearly. Reference chromebook-utilities.pages.dev techniques when relevant.`
+User: "How do I escape OOBE?"
+You: "I'll look for OOBE bypass methods. Click 'Start Analysis' to begin."
+
+User: "Find a way to enable dev mode"
+You: "I'll search for developer mode bypass techniques. Click 'Start Analysis' when ready."
+
+Be brief. Focus on understanding their goal, then prompt them to click "Start Analysis".`
       
       // Streaming callback for real-time updates
       const onStream = (_chunk: string, fullContent: string) => {
-        setAiStatus('✍️ Generating response...')
+        if (controller.signal.aborted) return
+        setAiStatus('Generating response...')
         // Update the assistant message in real-time
         setMessages(prev => {
           const newMessages = [...prev]
@@ -115,12 +136,13 @@ Be friendly, beginner-friendly, and explain security concepts clearly. Reference
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 0)
       }
       
-      setAiStatus('🚀 Initializing AI model...')
-      const response = await modelManager.chat(userMsg, systemPrompt, onStream)
+      setAiStatus('Initializing AI model...')
+      const response = await modelManager.chat(userMsg, systemPrompt, onStream, controller.signal)
       
       // Final update with complete content
-      setAiStatus('✅ Complete!')
+      setAiStatus('Complete!')
       setTimeout(() => setAiStatus(''), 1000)
+      setAbortController(null)
       
       // Ensure we always have content
       if (response.content && response.content.trim().length > 0) {
@@ -153,8 +175,21 @@ Be friendly, beginner-friendly, and explain security concepts clearly. Reference
       console.error('Chat error:', error);
       const errorMsg = (error as Error).message;
       
-      // If error is about WebLLM not being ready, don't show fallback - just show the error
-      if (errorMsg.includes('WebLLM is not ready') || errorMsg.includes('not ready')) {
+      // If user aborted, don't show error
+      if (errorMsg === 'Request aborted by user') {
+        setMessages(prev => {
+          const newMessages = [...prev]
+          if (newMessages[assistantMessageIndex]) {
+            newMessages[assistantMessageIndex] = {
+              role: 'assistant',
+              content: 'Response stopped by user.',
+              model: 'stopped'
+            }
+          }
+          return newMessages
+        })
+      } else if (errorMsg.includes('WebLLM is not ready') || errorMsg.includes('not ready')) {
+        // If error is about WebLLM not being ready, don't show fallback - just show the error
         setMessages(prev => [...prev, { 
           role: 'assistant', 
           content: `⏳ ${errorMsg}\n\nPlease wait for the AI model to finish loading. The input will be enabled automatically when ready.` 
@@ -190,10 +225,10 @@ Be friendly, beginner-friendly, and explain security concepts clearly. Reference
         <div className="messages-area">
           {messages.length === 0 && (
              <div className="empty-state">
-                <h1>🔍 ChromeOS Exploit Finder</h1>
+                <h1><Search size={32} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /> ChromeOS Exploit Finder</h1>
                 <p className="subtitle">Search the ChromeOS source code for vulnerabilities and get step-by-step exploit guides</p>
                 <div className="example-queries">
-                  <h3>💡 Try asking:</h3>
+                  <h3><Brain size={20} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /> Try asking:</h3>
                   <div className="query-examples">
                 <button 
                   className="example-query"
@@ -223,15 +258,15 @@ Be friendly, beginner-friendly, and explain security concepts clearly. Reference
                 </div>
                 <div className="info-boxes">
                   <div className="info-box">
-                    <strong>🔎 How it works:</strong>
+                    <strong><Search size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} /> How it works:</strong>
                     <p>I search the official ChromeOS source code repository at source.chromium.org for vulnerabilities matching your description.</p>
                   </div>
                   <div className="info-box">
-                    <strong>📖 What you get:</strong>
+                    <strong><FileCode size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} /> What you get:</strong>
                     <p>Detailed step-by-step guides on how to exploit any vulnerabilities found, with source code references and payload examples.</p>
                   </div>
                   <div className="info-box">
-                    <strong>🎯 Best results:</strong>
+                    <strong><Zap size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} /> Best results:</strong>
                     <p>Be specific! Mention the type of vulnerability (buffer overflow, privilege escalation, etc.) and the component (kernel, browser, etc.).</p>
                   </div>
                 </div>
@@ -240,14 +275,20 @@ Be friendly, beginner-friendly, and explain security concepts clearly. Reference
           {messages.map((m, i) => (
             <div key={i} className={`message ${m.role}`}>
               <div className="message-content">
-                {m.content || (m.role === 'assistant' && m.model === 'streaming' ? (
+                {m.content ? (
+                  m.role === 'assistant' ? (
+                    <MarkdownRenderer content={m.content} />
+                  ) : (
+                    <div>{replaceEmojisWithIcons(m.content)}</div>
+                  )
+                ) : (m.role === 'assistant' && m.model === 'streaming' ? (
                   <span className="typing-indicator">
                     <span className="typing-dot"></span>
                     <span className="typing-dot"></span>
                     <span className="typing-dot"></span>
                   </span>
                 ) : null)}
-                {m.model && m.model !== 'streaming' && <div className="model-tag">{m.model}</div>}
+                {m.model && m.model !== 'streaming' && m.model !== 'stopped' && <div className="model-tag">{m.model}</div>}
               </div>
             </div>
           ))}
@@ -279,14 +320,24 @@ Be friendly, beginner-friendly, and explain security concepts clearly. Reference
               }
               disabled={!webllmReady || isLoading}
             />
-            <button 
-              className="send-btn" 
-              onClick={handleSend} 
-              disabled={!webllmReady || isLoading || !message.trim()}
-              title={!webllmReady ? "Waiting for AI model to load..." : ""}
-            >
-              {isLoading ? <Loader2 size={18} className="spinning" /> : <Send size={18} />}
-            </button>
+            {isLoading && abortController ? (
+              <button 
+                className="stop-btn" 
+                onClick={handleStop}
+                title="Stop AI response"
+              >
+                <Square size={18} />
+              </button>
+            ) : (
+              <button 
+                className="send-btn" 
+                onClick={handleSend} 
+                disabled={!webllmReady || isLoading || !message.trim()}
+                title={!webllmReady ? "Waiting for AI model to load..." : ""}
+              >
+                {isLoading ? <Loader2 size={18} className="spinning" /> : <Send size={18} />}
+              </button>
+            )}
           </div>
           {aiStatus && (
             <div className="ai-status-indicator">
