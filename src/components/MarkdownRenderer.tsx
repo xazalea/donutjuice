@@ -14,28 +14,7 @@ interface MarkdownRendererProps {
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   // Simple markdown parser (can be enhanced with a library later)
   const parseMarkdown = (text: string): React.ReactNode[] => {
-    const parts: React.ReactNode[] = [];
     let currentIndex = 0;
-    
-    // Match markdown patterns
-    const patterns = [
-      { regex: /^### (.+)$/gm, render: (match: string, content: string) => <h3 key={`h3-${currentIndex++}`}>{replaceEmojisWithIcons(content)}</h3> },
-      { regex: /^## (.+)$/gm, render: (match: string, content: string) => <h2 key={`h2-${currentIndex++}`}>{replaceEmojisWithIcons(content)}</h2> },
-      { regex: /^# (.+)$/gm, render: (match: string, content: string) => <h1 key={`h1-${currentIndex++}`}>{replaceEmojisWithIcons(content)}</h1> },
-      { regex: /`([^`]+)`/g, render: (match: string, code: string) => <code key={`code-${currentIndex++}`} className="inline-code">{code}</code> },
-      { regex: /```(\w+)?\n([\s\S]*?)```/g, render: (match: string, lang: string, code: string) => (
-        <pre key={`pre-${currentIndex++}`} className="code-block">
-          <code className={lang ? `language-${lang}` : ''}>{code}</code>
-        </pre>
-      ) },
-      { regex: /\*\*(.+?)\*\*/g, render: (match: string, text: string) => <strong key={`strong-${currentIndex++}`}>{replaceEmojisWithIcons(text)}</strong> },
-      { regex: /\*(.+?)\*/g, render: (match: string, text: string) => <em key={`em-${currentIndex++}`}>{replaceEmojisWithIcons(text)}</em> },
-      { regex: /\[([^\]]+)\]\(([^)]+)\)/g, render: (match: string, text: string, url: string) => (
-        <a key={`link-${currentIndex++}`} href={url} target="_blank" rel="noopener noreferrer" className="markdown-link">
-          {replaceEmojisWithIcons(text)}
-        </a>
-      ) },
-    ];
     
     // Split by lines first
     const lines = text.split('\n');

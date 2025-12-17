@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Send, Terminal, Loader2, X, Search, Code, CheckCircle, Zap, Brain, FileCode } from 'lucide-react'
+import { Send, Terminal, Loader2, Square, Search, Zap, Brain, FileCode } from 'lucide-react'
 import { ModelManager } from '@lib/ai/model-manager'
 import { ModelLoadingIndicator } from '../components/ModelLoadingIndicator'
+import { MarkdownRenderer } from '../components/MarkdownRenderer'
+import { replaceEmojisWithIcons } from '@lib/utils/emoji-to-icon'
 import './StartPage.css'
 
 export function StartPage() {

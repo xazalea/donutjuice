@@ -5,14 +5,14 @@
 
 import React from 'react';
 import { 
-  Search, Code, CheckCircle, Zap, Brain, FileCode, 
+  Search, CheckCircle, Zap, Brain, FileCode, 
   AlertCircle, Shield, Lock, Unlock, Key, Terminal,
-  Cpu, HardDrive, Network, Database, Settings, 
+  Cpu, HardDrive, Network, Database, 
   Play, Pause, Square, RefreshCw, Download, Upload,
-  Info, HelpCircle, AlertTriangle, X, Plus, Minus,
+  Info, HelpCircle, X, Plus, Minus,
   ArrowRight, ArrowLeft, ArrowUp, ArrowDown, Star,
   Heart, ThumbsUp, ThumbsDown, MessageSquare, Send,
-  Eye, EyeOff, Filter, List, Grid, Calendar, Clock,
+  Eye, EyeOff, List, Calendar, Clock,
   type LucideIcon
 } from 'lucide-react';
 
