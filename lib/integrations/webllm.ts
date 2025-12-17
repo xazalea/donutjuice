@@ -21,6 +21,8 @@ export interface WebLLMResult {
   responseTime?: number;
 }
 
+export type StreamCallback = (chunk: string, fullContent: string) => void;
+
 export class WebLLMIntegration {
   private engine: any = null;
   private isInitialized: boolean = false;
@@ -301,10 +303,10 @@ export class WebLLMIntegration {
   }
 
   /**
-   * Chat with the model - optimized for speed
+   * Chat with the model - optimized for speed with streaming support
    * This uses REAL AI models running locally via WebLLM
    */
-  async chat(message: string, systemPrompt?: string): Promise<WebLLMResult> {
+  async chat(message: string, systemPrompt?: string, onStream?: StreamCallback): Promise<WebLLMResult> {
     const startTime = Date.now();
     
     console.log('[WebLLM] Starting chat with real AI model:', this.modelName);
@@ -339,10 +341,11 @@ export class WebLLMIntegration {
       };
 
       // Use streaming if enabled for faster perceived performance
-      if (this.config.streaming) {
-        return this.chatStreaming(messages, chatOptions, startTime);
+      if (this.config.streaming || onStream) {
+        return this.chatStreaming(messages, chatOptions, startTime, onStream);
       }
 
+      // Non-streaming fallback
       const response = await this.engine.chat.completions.create(chatOptions);
       const responseTime = Date.now() - startTime;
       
@@ -367,57 +370,69 @@ export class WebLLMIntegration {
 
   /**
    * Streaming chat for faster perceived performance
+   * WebLLM uses chat.completions.create with stream: true
    */
   private async chatStreaming(
-    _messages: any[],
+    messages: any[],
     options: any,
-    startTime: number
+    startTime: number,
+    onStream?: StreamCallback
   ): Promise<WebLLMResult> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       let fullContent = '';
       
-      this.engine.chat.completions.create({
-        ...options,
-        stream: true,
-      }).then((stream: any) => {
-        const reader = stream.getReader();
-        const decoder = new TextDecoder();
-
-        const readChunk = async () => {
-          try {
-            const { done, value } = await reader.read();
-            
-            if (done) {
-              const responseTime = Date.now() - startTime;
-              resolve({
-                content: fullContent,
-                tokens: fullContent.split(' ').length, // Approximate
-                model: this.modelName,
-                responseTime,
-              });
-              return;
-            }
-
-            const chunk = decoder.decode(value);
-            // Parse streaming response (simplified)
-            try {
-              const data = JSON.parse(chunk);
-              if (data.choices?.[0]?.delta?.content) {
-                fullContent += data.choices[0].delta.content;
+      try {
+        // WebLLM streaming: use chat.completions.create with stream: true
+        const stream = await this.engine.chat.completions.create({
+          ...options,
+          stream: true,
+        });
+        
+        // Process streaming chunks (WebLLM returns async iterator)
+        for await (const chunk of stream) {
+          if (chunk && chunk.choices && chunk.choices[0]) {
+            const delta = chunk.choices[0].delta?.content || '';
+            if (delta) {
+              fullContent += delta;
+              // Call streaming callback if provided
+              if (onStream) {
+                onStream(delta, fullContent);
               }
-            } catch {
-              // Non-JSON chunk, append directly
-              fullContent += chunk;
             }
-
-            await readChunk();
-          } catch (error) {
-            reject(error);
           }
-        };
-
-        readChunk();
-      }).catch(reject);
+        }
+        
+        const responseTime = Date.now() - startTime;
+        console.log(`[WebLLM] Streamed ${fullContent.length} characters in ${responseTime}ms`);
+        resolve({
+          content: fullContent,
+          tokens: fullContent.split(' ').length, // Approximate
+          model: this.modelName,
+          responseTime,
+        });
+      } catch (streamError) {
+        // Fallback to non-streaming if streaming fails
+        console.warn('[WebLLM] Streaming failed, falling back to non-streaming:', streamError);
+        try {
+          const response = await this.engine.chat.completions.create({
+            ...options,
+            stream: false,
+          });
+          const content = response.choices[0].message.content;
+          const responseTime = Date.now() - startTime;
+          if (onStream && content) {
+            onStream(content, content); // Send full content at once
+          }
+          resolve({
+            content,
+            tokens: response.usage?.total_tokens || 0,
+            model: this.modelName,
+            responseTime,
+          });
+        } catch (fallbackError) {
+          reject(fallbackError);
+        }
+      }
     });
   }
 

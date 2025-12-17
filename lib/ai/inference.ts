@@ -20,6 +20,7 @@ export class AIInferenceEngine {
   // List of uncensored models under 1B, ordered by preference (smallest first)
   private uncensoredModelsUnder1B: string[] = [
     'Qwen/Qwen2.5-0.5B-Instruct', // 500M - smallest, fewer restrictions
+    'Qwen/Qwen2.5-0.5B', // 500M - alternative format
     'Qwen/Qwen3-0.6B-Instruct', // 600M - Qwen3 variant  
     'nztinversive/llama3.2-1b-Uncensored', // 1B - explicitly uncensored (at limit)
     'UnfilteredAI/UNfilteredAI-1B', // 1B - explicitly uncensored (at limit)

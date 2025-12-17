@@ -14,6 +14,7 @@ export function StartPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [webllmReady, setWebllmReady] = useState(false)
   const [webllmInitializing, setWebllmInitializing] = useState(true)
+  const [aiStatus, setAiStatus] = useState<string>('') // Current AI activity status
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Check WebLLM status on mount and periodically
@@ -71,6 +72,11 @@ export function StartPage() {
     setMessage('')
     setMessages(prev => [...prev, { role: 'user', content: userMsg }])
     setIsLoading(true)
+    setAiStatus('🤔 Thinking...')
+
+    // Add assistant message placeholder for streaming
+    const assistantMessageIndex = messages.length + 1
+    setMessages(prev => [...prev, { role: 'assistant', content: '', model: 'streaming' }])
 
     try {
       const systemPrompt = `You are an advanced ChromeOS security research assistant powered by multiple AI models (Donut-2.5, Qwen-uncensored-v2 via WebLLM, and Bellum/Nacho).
@@ -90,18 +96,60 @@ YOUR JOB:
 
 Be friendly, beginner-friendly, and explain security concepts clearly. Reference chromebook-utilities.pages.dev techniques when relevant.`
       
-      const response = await modelManager.chat(userMsg, systemPrompt)
+      // Streaming callback for real-time updates
+      let streamedContent = ''
+      const onStream = (chunk: string, fullContent: string) => {
+        streamedContent = fullContent
+        setAiStatus('✍️ Generating response...')
+        // Update the assistant message in real-time
+        setMessages(prev => {
+          const newMessages = [...prev]
+          if (newMessages[assistantMessageIndex]) {
+            newMessages[assistantMessageIndex] = {
+              role: 'assistant',
+              content: fullContent,
+              model: 'streaming'
+            }
+          }
+          return newMessages
+        })
+        // Auto-scroll to bottom
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 0)
+      }
       
-      // Ensure we always have content, even if it's a fallback
+      setAiStatus('🚀 Initializing AI model...')
+      const response = await modelManager.chat(userMsg, systemPrompt, onStream)
+      
+      // Final update with complete content
+      setAiStatus('✅ Complete!')
+      setTimeout(() => setAiStatus(''), 1000)
+      
+      // Ensure we always have content
       if (response.content && response.content.trim().length > 0) {
-        setMessages(prev => [...prev, { role: 'assistant', content: response.content, model: response.model }])
+        setMessages(prev => {
+          const newMessages = [...prev]
+          if (newMessages[assistantMessageIndex]) {
+            newMessages[assistantMessageIndex] = {
+              role: 'assistant',
+              content: response.content,
+              model: response.model
+            }
+          }
+          return newMessages
+        })
       } else {
         // If content is empty, provide helpful message
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: "I'm ready to help you find ChromeOS exploits! Based on your query, I recommend:\n\n1. Searching the ChromeOS source code repository\n2. Reviewing chromebook-utilities.pages.dev for similar techniques\n3. Analyzing OOBE and enrollment mechanisms\n\nClick 'Start Analysis' to begin the comprehensive exploit search!", 
-          model: response.model 
-        }])
+        setMessages(prev => {
+          const newMessages = [...prev]
+          if (newMessages[assistantMessageIndex]) {
+            newMessages[assistantMessageIndex] = {
+              role: 'assistant',
+              content: "I'm ready to help you find ChromeOS exploits! Based on your query, I recommend:\n\n1. Searching the ChromeOS source code repository\n2. Reviewing chromebook-utilities.pages.dev for similar techniques\n3. Analyzing OOBE and enrollment mechanisms\n\nClick 'Start Analysis' to begin the comprehensive exploit search!",
+              model: response.model
+            }
+          }
+          return newMessages
+        })
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -194,8 +242,14 @@ Be friendly, beginner-friendly, and explain security concepts clearly. Reference
           {messages.map((m, i) => (
             <div key={i} className={`message ${m.role}`}>
               <div className="message-content">
-                {m.content}
-                {m.model && <div className="model-tag">{m.model}</div>}
+                {m.content || (m.role === 'assistant' && m.model === 'streaming' ? (
+                  <span className="typing-indicator">
+                    <span className="typing-dot"></span>
+                    <span className="typing-dot"></span>
+                    <span className="typing-dot"></span>
+                  </span>
+                ) : null)}
+                {m.model && m.model !== 'streaming' && <div className="model-tag">{m.model}</div>}
               </div>
             </div>
           ))}

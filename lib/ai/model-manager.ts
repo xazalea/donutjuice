@@ -17,6 +17,8 @@ export interface ChatResult {
   reasoning?: any;
 }
 
+export type StreamCallback = (chunk: string, fullContent: string) => void;
+
 export class ModelManager {
   private g4f: G4FIntegration;
   private donutEngine: AIInferenceEngine;
@@ -39,7 +41,7 @@ export class ModelManager {
       modelUrl: 'https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC', // 500M - under 1B
       modelName: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', // 500M unrestricted model
       useCache: true, // Cache model for faster subsequent loads
-      streaming: false, // Disable streaming for now - can enable for faster perceived performance
+      streaming: true, // Enable streaming for faster perceived performance
     });
     
     // Pass WebLLM to Donut engine so it can use it
@@ -147,7 +149,7 @@ export class ModelManager {
     };
   }
 
-  async chat(message: string, systemPrompt: string): Promise<ChatResult> {
+  async chat(message: string, systemPrompt: string, onStream?: StreamCallback): Promise<ChatResult> {
     let content = '';
     
     // CRITICAL: Ensure WebLLM is ready before proceeding
@@ -167,10 +169,27 @@ export class ModelManager {
                           message.toLowerCase().includes('unenrollment');
 
     try {
-      if (this.currentModelId === 'qwen-webllm') {
-        // NOTE: WebLLM doesn't have truly uncensored models
-        // Use HuggingFace API directly for uncensored models instead
-        console.log('[ModelManager] Using HuggingFace API for uncensored model (WebLLM doesn\'t have uncensored options)');
+      // Prefer WebLLM for unrestricted models under 1B
+      if (this.webllm && this.webllm.isAvailable()) {
+        console.log('[ModelManager] Using WebLLM REAL AI with unrestricted model under 1B (streaming enabled)...');
+        const result = await this.webllm.chat(message, systemPrompt, onStream);
+        content = result.content;
+        console.log(`[ModelManager] WebLLM REAL AI response: ${content.length} chars`);
+        return { content, model: 'qwen-webllm' };
+      } else if (this.currentModelId === 'qwen-webllm') {
+        // Try to initialize WebLLM
+        if (this.webllm) {
+          await this.webllm.initialize();
+          if (this.webllm.isAvailable()) {
+            console.log('[ModelManager] Using WebLLM REAL AI (just initialized)...');
+            const result = await this.webllm.chat(message, systemPrompt, onStream);
+            content = result.content;
+            console.log(`[ModelManager] WebLLM REAL AI response: ${content.length} chars`);
+            return { content, model: 'qwen-webllm' };
+          }
+        }
+        // Fallback to HuggingFace API
+        console.log('[ModelManager] WebLLM not available, using HuggingFace API for uncensored model...');
         const combinedPrompt = isExploitQuery
           ? ExploitPrompts.buildChromeOSExploitPrompt(message)
           : `${systemPrompt}\n\nUser: ${message}\nAssistant:`;
@@ -222,22 +241,22 @@ export class ModelManager {
         }
       }
       
-      // Try WebLLM as last backup
+      // Try WebLLM as primary or backup
       if (this.webllm) {
         try {
           if (!this.webllm.isAvailable()) {
             await this.webllm.initialize();
           }
           if (this.webllm.isAvailable()) {
-            console.log('[ModelManager] Trying WebLLM REAL AI as final backup...');
-            const result = await this.webllm.chat(message, systemPrompt);
+            console.log('[ModelManager] Using WebLLM REAL AI with unrestricted model under 1B...');
+            const result = await this.webllm.chat(message, systemPrompt, onStream);
             if (result.content && result.content.trim().length > 0) {
-              console.log('[ModelManager] WebLLM REAL AI backup succeeded!');
+              console.log('[ModelManager] WebLLM REAL AI succeeded!');
               return { content: result.content, model: 'qwen-webllm' };
             }
           }
         } catch (webllmError) {
-          console.warn('[ModelManager] WebLLM backup failed:', webllmError);
+          console.warn('[ModelManager] WebLLM failed:', webllmError);
         }
       }
       
