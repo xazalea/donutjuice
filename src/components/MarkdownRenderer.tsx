@@ -14,8 +14,6 @@ interface MarkdownRendererProps {
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   // Simple markdown parser (can be enhanced with a library later)
   const parseMarkdown = (text: string): React.ReactNode[] => {
-    let currentIndex = 0;
-    
     // Split by lines first
     const lines = text.split('\n');
     const processedLines: React.ReactNode[] = [];
@@ -69,17 +67,17 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
         let lineContent: React.ReactNode = line;
         
         // Bold
-        lineContent = (lineContent as string).replace(/\*\*(.+?)\*\*/g, (match, text) => {
+        lineContent = (lineContent as string).replace(/\*\*(.+?)\*\*/g, (_match, text) => {
           return `<strong>${text}</strong>`;
         });
         
         // Inline code
-        lineContent = (lineContent as string).replace(/`([^`]+)`/g, (match, code) => {
+        lineContent = (lineContent as string).replace(/`([^`]+)`/g, (_match, code) => {
           return `<code class="inline-code">${code}</code>`;
         });
         
         // Links
-        lineContent = (lineContent as string).replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+        lineContent = (lineContent as string).replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text, url) => {
           return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="markdown-link">${text}</a>`;
         });
         

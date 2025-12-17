@@ -49,8 +49,6 @@ export const EMOJI_TO_ICON: EmojiIconMap = {
   '➖': Minus,
   '➡️': ArrowRight,
   '⬅️': ArrowLeft,
-  '⬆️': ArrowUp,
-  '⬇️': ArrowDown,
   '⭐': Star,
   '❤️': Heart,
   '👍': ThumbsUp,
