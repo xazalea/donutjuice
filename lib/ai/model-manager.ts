@@ -124,15 +124,24 @@ export class ModelManager {
   }
 
   /**
-   * Get uncensored model initialization status
-   * NOTE: We use HuggingFace API for uncensored models, not WebLLM
+   * Get WebLLM initialization status
+   * This checks if WebLLM is actually ready (not HuggingFace API)
    */
   getWebLLMStatus(): { isReady: boolean; isInitializing: boolean } {
-    // HuggingFace API is always ready (it's a web API, no initialization needed)
-    // We use uncensored models via HuggingFace API, not WebLLM
+    if (!this.webllm) {
+      return {
+        isReady: false,
+        isInitializing: false,
+      };
+    }
+    
+    // Check if WebLLM is available
+    const isReady = this.webllm.isAvailable();
+    const isInitializing = this.webllm.isInitializing || false;
+    
     return {
-      isReady: true, // HuggingFace API is always available
-      isInitializing: false, // No initialization needed for web API
+      isReady,
+      isInitializing,
     };
   }
 

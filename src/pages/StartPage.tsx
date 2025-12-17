@@ -23,10 +23,16 @@ export function StartPage() {
       setWebllmInitializing(status.isInitializing)
       
       if (!status.isReady) {
-        // Try to initialize WebLLM
-        const ready = await modelManager.isWebLLMReady()
-        setWebllmReady(ready)
-        setWebllmInitializing(false)
+        // Try to initialize WebLLM - this will actually initialize it
+        try {
+          const ready = await modelManager.isWebLLMReady()
+          setWebllmReady(ready)
+          setWebllmInitializing(false)
+        } catch (error) {
+          console.warn('WebLLM initialization check failed:', error)
+          setWebllmReady(false)
+          setWebllmInitializing(false)
+        }
       } else {
         setWebllmReady(true)
         setWebllmInitializing(false)
@@ -35,14 +41,14 @@ export function StartPage() {
 
     checkWebLLMStatus()
     
-    // Check periodically until ready
+    // Check periodically until ready (every 1 second for faster response)
     const interval = setInterval(() => {
       if (!webllmReady) {
         checkWebLLMStatus()
       } else {
         clearInterval(interval)
       }
-    }, 2000)
+    }, 1000)
 
     return () => clearInterval(interval)
   }, [modelManager, webllmReady])
@@ -54,12 +60,10 @@ export function StartPage() {
   const handleSend = async () => {
     if (!message.trim() || isLoading) return
     
-    // Block if WebLLM is not ready
+    // STRICT: Block completely if WebLLM is not ready - no fallback messages
     if (!webllmReady) {
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: '⏳ Please wait while the AI model is loading... This ensures you get real AI responses, not fallbacks. The model will be ready shortly!' 
-      }])
+      // Don't add any message, just return silently
+      // The UI already shows loading state
       return
     }
     
@@ -101,12 +105,21 @@ Be friendly, beginner-friendly, and explain security concepts clearly. Reference
       }
     } catch (error) {
       console.error('Chat error:', error);
-      // Provide helpful error message instead of generic error
       const errorMsg = (error as Error).message;
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: `I encountered a connection issue (${errorMsg}), but I can still help! Based on your query "${userMsg}", here are some ChromeOS exploit research directions:\n\n1. **OOBE Bypass**: Look for ways to skip enrollment during Out-of-Box Experience\n2. **Unenrollment**: Check server-side API endpoints for unenrollment vulnerabilities\n3. **Policy Bypass**: Review policy enforcement mechanisms\n4. **Developer Mode**: Explore developer mode exploitation vectors\n\nWould you like to proceed with the source code search?` 
-      }])
+      
+      // If error is about WebLLM not being ready, don't show fallback - just show the error
+      if (errorMsg.includes('WebLLM is not ready') || errorMsg.includes('not ready')) {
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: `⏳ ${errorMsg}\n\nPlease wait for the AI model to finish loading. The input will be enabled automatically when ready.` 
+        }])
+      } else {
+        // For other errors, show the error but don't provide fallback content
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: `❌ Error: ${errorMsg}\n\nPlease try again once the AI model is ready.` 
+        }])
+      }
     } finally {
       setIsLoading(false)
     }
