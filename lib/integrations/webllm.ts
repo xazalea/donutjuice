@@ -25,7 +25,7 @@ export class WebLLMIntegration {
   private engine: any = null;
   private isInitialized: boolean = false;
   private isInitializing: boolean = false;
-  private modelName: string;
+  private modelName: string = 'TinyLlama-1.1B-Chat-v0.4-q4f16_1'; // Default to a model that exists
   private config: WebLLMConfig;
   private initPromise: Promise<void> | null = null;
   private modelCache: Map<string, any> = new Map();
@@ -55,15 +55,15 @@ export class WebLLMIntegration {
       ...config,
     };
     
-    // Determine model name
+    // Determine model name - support custom models via modelUrl
     if (config?.modelName) {
       this.modelName = config.modelName;
     } else if (config?.modelUrl) {
-      // Extract model name from URL or use custom
-      this.modelName = this.detectModelFromUrl(config.modelUrl) || 'Qwen/Qwen2.5-7B-Instruct-q4f16_1-MLC';
+      // For custom models, use a descriptive name or extract from URL
+      this.modelName = this.detectModelFromUrl(config.modelUrl) || 'Qwen-uncensored-v2';
     } else {
-      // Default to Qwen-uncensored-v2 equivalent
-      this.modelName = 'Qwen/Qwen2.5-7B-Instruct-q4f16_1-MLC';
+      // Default fallback (only if no custom model specified)
+      this.modelName = 'TinyLlama-1.1B-Chat-v0.4-q4f16_1';
     }
   }
 
@@ -71,11 +71,12 @@ export class WebLLMIntegration {
    * Detect model from URL
    */
   private detectModelFromUrl(url: string): string | null {
+    // Map URLs to model identifiers for custom models
     if (url.includes('qwen-uncensored-v2') || url.includes('Qwen-uncensored-v2')) {
-      return 'Qwen/Qwen2.5-7B-Instruct-q4f16_1-MLC';
+      return 'Qwen-uncensored-v2';
     }
-    if (url.includes('qwen')) {
-      return 'Qwen/Qwen2.5-7B-Instruct-q4f16_1-MLC';
+    if (url.includes('qwen') || url.includes('Qwen')) {
+      return 'Qwen-custom';
     }
     return null;
   }
@@ -168,23 +169,41 @@ export class WebLLMIntegration {
         initConfig.wasmPath = this.config.wasmPath;
       }
 
-      // Initialize engine
-      console.log(`Initializing WebLLM with model: ${this.modelName}`);
+      // Initialize engine - for custom models, pass modelUrl directly
+      console.log(`[WebLLM] Initializing with model: ${this.modelName}`);
+      if (this.config.modelUrl) {
+        console.log(`[WebLLM] Using custom model URL: ${this.config.modelUrl}`);
+      }
       const startTime = Date.now();
       
       try {
-        this.engine = await CreateMLCEngine(this.modelName, initConfig);
+        // For custom models, we can pass the modelUrl directly or use it in the config
+        // WebLLM supports custom models via modelUrl parameter
+        if (this.config.modelUrl) {
+          // Use modelUrl for custom models - WebLLM will handle the download
+          this.engine = await CreateMLCEngine(this.config.modelUrl, initConfig);
+          console.log(`[WebLLM] Custom model engine created`);
+        } else {
+          // Use standard model name for built-in models
+          this.engine = await CreateMLCEngine(this.modelName, initConfig);
+        }
         
         const initTime = Date.now() - startTime;
-        console.log(`WebLLM Engine Initialized in ${initTime}ms`);
+        console.log(`[WebLLM] Engine Initialized in ${initTime}ms`);
       } catch (modelError) {
-        // If model fails, try to use custom URL if provided
+        console.error('[WebLLM] Initialization error:', modelError);
+        // If custom URL fails, try with model name as fallback
         if (this.config.modelUrl && !initConfig.modelUrl) {
-          console.log('Retrying with custom model URL:', this.config.modelUrl);
-          initConfig.modelUrl = this.config.modelUrl;
-          this.engine = await CreateMLCEngine(this.modelName, initConfig);
-          const initTime = Date.now() - startTime;
-          console.log(`WebLLM Engine Initialized with custom URL in ${initTime}ms`);
+          console.log('[WebLLM] Retrying with model name as identifier...');
+          try {
+            initConfig.modelUrl = this.config.modelUrl;
+            this.engine = await CreateMLCEngine(this.modelName, initConfig);
+            const initTime = Date.now() - startTime;
+            console.log(`[WebLLM] Engine Initialized with fallback method in ${initTime}ms`);
+          } catch (fallbackError) {
+            console.error('[WebLLM] Fallback initialization also failed:', fallbackError);
+            throw modelError; // Throw original error
+          }
         } else {
           throw modelError;
         }
@@ -238,10 +257,28 @@ export class WebLLMIntegration {
    * Fallback initialization using alternative methods
    */
   private async initializeFallback(): Promise<void> {
-    console.warn('Using fallback WebLLM initialization');
+    console.warn('[WebLLM] Using fallback initialization');
     
-    // Try to use a smaller/faster model as fallback
-    const fallbackModel = 'Qwen/Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+    // If we have a custom model URL, try using it directly
+    if (this.config.modelUrl) {
+      console.log('[WebLLM] Attempting fallback with custom model URL:', this.config.modelUrl);
+      try {
+        const { CreateMLCEngine } = await import('@mlc-ai/web-llm');
+        this.engine = await CreateMLCEngine(this.config.modelUrl, {
+          initProgressCallback: (report: any) => {
+            console.log(`[WebLLM] Fallback init: ${(report.progress * 100).toFixed(1)}%`);
+          },
+        });
+        this.isInitialized = true;
+        console.log('[WebLLM] Fallback initialization succeeded with custom URL');
+        return;
+      } catch (fallbackError) {
+        console.error('[WebLLM] Fallback with custom URL failed:', fallbackError);
+      }
+    }
+    
+    // Try to use a smaller/faster model as last resort
+    const fallbackModel = 'TinyLlama-1.1B-Chat-v0.4-q4f16_1';
     
     try {
       const { CreateMLCEngine } = await import('@mlc-ai/web-llm');

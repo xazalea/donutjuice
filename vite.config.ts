@@ -25,14 +25,22 @@ export default defineConfig({
       '/api/hf': {
         target: 'https://api-inference.huggingface.co',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/hf/, ''),
+        rewrite: (path) => {
+          // Rewrite /api/hf/models/ModelName to /models/ModelName
+          const newPath = path.replace(/^\/api\/hf/, '');
+          console.log(`[Proxy] Rewriting ${path} to ${newPath}`);
+          return newPath;
+        },
         secure: true,
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
-            console.log('proxy error', err);
+            console.error('[Proxy] Error:', err);
           });
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            console.log('Proxying request to:', proxyReq.path);
+            console.log('[Proxy] Proxying request to:', proxyReq.path);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('[Proxy] Response status:', proxyRes.statusCode, 'for', req.url);
           });
         },
       },

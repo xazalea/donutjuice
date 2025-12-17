@@ -16,7 +16,7 @@ export interface AIAnalysisResult {
 
 export class AIInferenceEngine {
   private apiKey?: string;
-  private modelId: string = 'ICEPVP8977/Uncensoreed_Qwen2_0.5Test';
+  private modelId: string = 'microsoft/Phi-3-mini-4k-instruct'; // Use a model that actually exists
   private webllm: WebLLMIntegration | null = null;
   private useWebLLM: boolean = true; // Prefer WebLLM over API
 
@@ -24,10 +24,11 @@ export class AIInferenceEngine {
     this.apiKey = apiKey;
     this.webllm = webllm || null;
     
-    // Initialize WebLLM if not provided
+    // Initialize WebLLM if not provided - use custom Qwen model
     if (!this.webllm) {
       this.webllm = new WebLLMIntegration({
-        modelName: 'Qwen/Qwen2.5-7B-Instruct-q4f16_1-MLC', // Same model as donut-2.5
+        modelUrl: 'https://huggingface.co/tensorblock/Qwen-uncensored-v2-GGUF', // Custom Qwen model
+        modelName: 'Qwen-uncensored-v2',
         useCache: true,
         streaming: false,
       });

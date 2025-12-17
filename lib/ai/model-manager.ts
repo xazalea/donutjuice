@@ -30,11 +30,11 @@ export class ModelManager {
   constructor() {
     this.g4f = new G4FIntegration();
     
-    // Configure WebLLM for Qwen-uncensored-v2-GGUF
-    // Supports both MLC format and custom GGUF URLs
+    // Configure WebLLM with custom Qwen-uncensored-v2 model
+    // WebLLM supports custom models via modelUrl
     this.webllm = new WebLLMIntegration({
-      modelName: 'Qwen/Qwen2.5-7B-Instruct-q4f16_1-MLC', // Qwen-uncensored-v2 equivalent (MLC format)
-      // Can also use: modelUrl: 'https://huggingface.co/tensorblock/Qwen-uncensored-v2-GGUF' for direct GGUF
+      modelUrl: 'https://huggingface.co/tensorblock/Qwen-uncensored-v2-GGUF', // Custom Qwen model
+      modelName: 'Qwen-uncensored-v2', // Custom model identifier
       useCache: true, // Cache model for faster subsequent loads
       streaming: false, // Disable streaming for now - can enable for faster perceived performance
     });
