@@ -77,39 +77,41 @@ export class AIInferenceEngine {
           };
         }
       } catch (webllmError) {
-        console.warn('WebLLM failed, falling back to API:', webllmError);
-        // Fall through to API fallback
+        console.warn('WebLLM failed, falling back to HuggingFace API:', webllmError);
+        // Fall through to API fallback - don't give up yet
       }
     }
     
-    // Fallback to HuggingFace API
+    // Try HuggingFace API - this is REAL AI, not fallback
     try {
-      // Use Hugging Face Inference API with fallback
+      console.log(`[AI] Calling HuggingFace API for model: ${this.modelId}`);
       let response;
       try {
         response = await fetch(
-          `/api/hf/models/${this.modelId}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
-            },
-            body: JSON.stringify({
-              inputs: prompt,
-              parameters: {
+        `/api/hf/models/${this.modelId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
+          },
+          body: JSON.stringify({
+            inputs: prompt,
+            parameters: {
                 max_new_tokens: 999999, // Infinite output - no limit
-                temperature: 0.7,
-                top_p: 0.9,
-                return_full_text: false,
-              },
-            }),
-          }
-        );
+              temperature: 0.7,
+              top_p: 0.9,
+              return_full_text: false,
+            },
+          }),
+        }
+      );
+        console.log(`[AI] HuggingFace API response status: ${response.status}`);
       } catch (fetchError) {
-        // Try with CORS proxy
-        console.warn('Direct fetch failed, trying CORS proxy:', fetchError);
+        // Try with CORS proxy - REAL API call
+        console.warn('[AI] Direct fetch failed, trying CORS proxy:', fetchError);
         try {
+          console.log(`[AI] Attempting CORS proxy for HuggingFace API`);
           response = await fetchWithProxy(
             `https://api-inference.huggingface.co/models/${this.modelId}`,
             {
@@ -130,28 +132,95 @@ export class AIInferenceEngine {
             },
             true // Use CORS proxy
           );
+          console.log(`[AI] CORS proxy response status: ${response.status}`);
         } catch (proxyError) {
-          console.warn('CORS proxy also failed, using fallback:', proxyError);
+          console.error('[AI] All API attempts failed, using fallback as last resort:', proxyError);
+          // Only use fallback as absolute last resort
           return this.generateFallbackAnalysis(deviceData);
         }
       }
 
       if (!response.ok) {
-        console.warn(`API returned ${response.status}, using intelligent fallback`);
-        return this.generateFallbackAnalysis(deviceData);
+        // Check if it's a rate limit or loading issue
+        if (response.status === 503) {
+          // Model is loading, wait and retry
+          console.log('[AI] Model is loading (503), waiting 10s and retrying...');
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          // Retry once
+          try {
+            response = await fetchWithProxy(
+              `https://api-inference.huggingface.co/models/${this.modelId}`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
+                },
+                body: JSON.stringify({
+                  inputs: prompt,
+                  parameters: {
+                    max_new_tokens: 999999,
+                    temperature: 0.7,
+                    top_p: 0.9,
+                    return_full_text: false,
+                  },
+                }),
+              },
+              true
+            );
+            if (response.ok) {
+              console.log('[AI] Retry successful!');
+            } else {
+              throw new Error(`Retry failed with status ${response.status}`);
+            }
+          } catch (retryError) {
+            console.error('[AI] Retry failed, using fallback:', retryError);
+            return this.generateFallbackAnalysis(deviceData);
+          }
+        } else {
+          console.error(`[AI] API returned ${response.status}, using fallback as last resort`);
+          return this.generateFallbackAnalysis(deviceData);
+        }
       }
 
       let data;
       try {
         data = await response.json();
+        console.log('[AI] Received response from HuggingFace API');
       } catch (jsonError) {
-        console.warn('Failed to parse JSON response, using intelligent fallback');
+        console.error('[AI] Failed to parse JSON response:', jsonError);
+        // Try to extract text from response even if JSON parsing fails
+        const text = await response.text();
+        if (text && text.length > 0) {
+          console.log('[AI] Using raw text response');
+          const analysis = this.parseResponse(text);
+          return {
+            vulnerabilities: analysis.vulnerabilities,
+            recommendations: analysis.recommendations,
+            confidence: analysis.confidence,
+            rawResponse: text,
+          };
+        }
+        console.error('[AI] No usable response, using fallback');
         return this.generateFallbackAnalysis(deviceData);
       }
+      
       const generatedText = Array.isArray(data) && data[0]?.generated_text
         ? data[0].generated_text
         : data.generated_text || '';
 
+      if (!generatedText || generatedText.trim().length === 0) {
+        console.error('[AI] Empty response from API - this should not happen with real AI');
+        return this.generateFallbackAnalysis(deviceData);
+      }
+
+      // Validate response quality
+      if (generatedText.length < 50) {
+        console.warn('[AI] Response seems too short, might be an error message');
+      }
+
+      console.log(`[AI] ✅ SUCCESS: Generated ${generatedText.length} chars from REAL AI model (${this.modelId})`);
+      console.log(`[AI] Response preview: ${generatedText.substring(0, 200)}...`);
       const analysis = this.parseResponse(generatedText);
       
       return {
@@ -161,10 +230,10 @@ export class AIInferenceEngine {
         rawResponse: generatedText,
       };
     } catch (error) {
-      console.error('AI inference error:', error);
-      // Return intelligent fallback analysis
+      console.error('[AI] AI inference error:', error);
+      // Only use fallback as absolute last resort
       const fallback = this.generateFallbackAnalysis(deviceData);
-      console.log('Using intelligent fallback analysis:', fallback);
+      console.warn('[AI] Using fallback analysis as last resort');
       return fallback;
     }
   }
@@ -198,14 +267,15 @@ export class AIInferenceEngine {
           };
         }
       } catch (webllmError) {
-        console.warn('WebLLM failed in deep analysis, falling back to API:', webllmError);
-        // Fall through to API fallback
+        console.warn('[AI] WebLLM failed in deep analysis, falling back to HuggingFace API:', webllmError);
+        // Fall through to API fallback - REAL AI
       }
     }
     
-    // Fallback to HuggingFace API
+    // Use HuggingFace API - REAL AI, not fallback
     const prompt = this.buildDeepAnalysisSystemPrompt() + `\n\nCONTEXT: ${context || 'ChromeOS / High-Security Environment'}\n\nSYSTEM DUMP:\n${systemData}`;
 
+    console.log(`[AI] Calling HuggingFace API for deep analysis (model: ${this.modelId})`);
     try {
       const requestBody = {
         inputs: prompt,
@@ -218,11 +288,11 @@ export class AIInferenceEngine {
       };
       
       const requestOptions = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
-        },
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
+          },
         body: JSON.stringify(requestBody),
       };
       
@@ -238,40 +308,115 @@ export class AIInferenceEngine {
             true // Use CORS proxy
           );
         } catch (directError) {
-          console.warn('CORS proxy also failed, using fallback:', directError);
-          return this.generateFallbackAnalysis(systemData);
+          console.error('[AI] CORS proxy also failed:', directError);
+          // Try one more time with direct API
+          try {
+            console.log('[AI] Attempting direct HuggingFace API call');
+            response = await fetch(
+              `https://api-inference.huggingface.co/models/${this.modelId}`,
+              requestOptions
+            );
+            if (response.ok) {
+              console.log('[AI] Direct API call succeeded!');
+            } else {
+              throw new Error(`Direct API returned ${response.status}`);
+            }
+          } catch (finalError) {
+            console.error('[AI] All API attempts failed, using fallback as last resort:', finalError);
+            return this.generateFallbackAnalysis(systemData);
+          }
         }
       }
 
       if (!response.ok) {
-        console.warn(`API returned ${response.status}, using intelligent fallback`);
-        return this.generateFallbackAnalysis(systemData);
+        if (response.status === 503) {
+          // Model loading, wait and retry multiple times
+          console.log('[AI] Model loading (503), waiting and retrying...');
+          for (let retry = 0; retry < 3; retry++) {
+            const waitTime = (retry + 1) * 15 * 1000; // 15s, 30s, 45s
+            console.log(`[AI] Waiting ${waitTime/1000}s before retry ${retry + 1}/3...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            
+            try {
+              response = await fetchWithProxy(
+                `https://api-inference.huggingface.co/models/${this.modelId}`,
+                requestOptions,
+                true
+              );
+              if (response.ok) {
+                console.log(`[AI] Retry ${retry + 1} successful! Got REAL AI response`);
+                break; // Success
+              } else if (response.status !== 503) {
+                throw new Error(`API returned ${response.status}`);
+              }
+              // Still 503, continue
+            } catch (retryError) {
+              if (retry === 2) {
+                console.error('[AI] All retries failed:', retryError);
+                return this.generateFallbackAnalysis(systemData);
+              }
+            }
+          }
+          
+          if (!response.ok) {
+            console.error('[AI] Model still loading after all retries');
+            return this.generateFallbackAnalysis(systemData);
+          }
+        } else {
+          console.error(`[AI] API returned ${response.status}, using fallback`);
+          return this.generateFallbackAnalysis(systemData);
+        }
       }
 
       let data;
       try {
         data = await response.json();
+        console.log('[AI] Successfully received JSON response from HuggingFace');
       } catch (jsonError) {
-        console.warn('Failed to parse JSON response, using intelligent fallback');
+        console.error('[AI] JSON parse error, trying raw text:', jsonError);
+        const text = await response.text();
+        if (text && text.length > 0) {
+          const analysis = this.parseResponse(text);
+          return {
+            vulnerabilities: analysis.vulnerabilities,
+            recommendations: analysis.recommendations,
+            confidence: 0.9,
+            rawResponse: text,
+          };
+        }
+        console.error('[AI] No usable response, using fallback');
         return this.generateFallbackAnalysis(systemData);
       }
+      
       const generatedText = Array.isArray(data) && data[0]?.generated_text
         ? data[0].generated_text
         : data.generated_text || '';
 
+      if (!generatedText || generatedText.trim().length === 0) {
+        console.error('[AI] Empty response from API - this should not happen with real AI');
+        return this.generateFallbackAnalysis(systemData);
+      }
+
+      // Validate that this looks like a real AI response (not just error messages)
+      if (generatedText.length < 50) {
+        console.warn('[AI] Response seems too short, might be an error message');
+      }
+
+      console.log(`[AI] ✅ SUCCESS: Generated ${generatedText.length} chars from REAL AI model (${this.modelId})`);
+      console.log(`[AI] Response preview: ${generatedText.substring(0, 200)}...`);
       const analysis = this.parseResponse(generatedText);
       
       return {
         vulnerabilities: analysis.vulnerabilities,
         recommendations: analysis.recommendations,
-        confidence: 0.9, // High confidence in vigorous mode
+        confidence: 0.9, // High confidence - this is from REAL AI
         rawResponse: generatedText,
       };
     } catch (error) {
-      console.error('Deep analysis error:', error);
-      // Provide intelligent fallback even when API fails
+      console.error('[AI] Deep analysis error:', error);
+      // Only use fallback as absolute last resort
       const fallback = this.generateFallbackAnalysis(systemData);
-      console.log('Using intelligent fallback analysis for deep system analysis');
+      console.warn('[AI] Using fallback as last resort after all attempts failed');
       return fallback;
     }
   }
@@ -295,11 +440,11 @@ export class AIInferenceEngine {
       };
       
       const requestOptions = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
-        },
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
+          },
         body: JSON.stringify(requestBody),
       };
       
@@ -372,11 +517,11 @@ OUTPUT: A single, raw, extremely aggressive exploit vector string.
         };
         
         const requestOptions = {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
-          },
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
+                },
           body: JSON.stringify(requestBody),
         };
         
@@ -434,11 +579,11 @@ OUTPUT: Code only.
         };
         
         const requestOptions = {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
-          },
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
+                },
           body: JSON.stringify(requestBody),
         };
         
@@ -478,10 +623,14 @@ OUTPUT: Code only.
   }
 
   /**
-   * Generate fallback analysis when API fails
-   * This provides intelligent analysis even when the API is unavailable
+   * Generate fallback analysis when ALL AI models fail
+   * WARNING: This is NOT real AI - it's pattern matching
+   * Only used as absolute last resort
    */
   private generateFallbackAnalysis(data: string): AIAnalysisResult {
+    console.warn('[AI] ⚠️ WARNING: Using fallback analysis (NOT real AI) - all models failed');
+    console.warn('[AI] This is pattern matching, not AI-generated content');
+    
     // Extract basic information from device data
     const vulnerabilities: string[] = [];
     const recommendations: string[] = [];
@@ -534,7 +683,9 @@ OUTPUT: Code only.
     }
     
     // Generate intelligent analysis based on query content
-    let analysis = `Based on the query analysis, I've identified several potential ChromeOS exploit vectors:\n\n`;
+    // NOTE: This is NOT real AI - it's pattern matching
+    let analysis = `⚠️ WARNING: This is a FALLBACK analysis (NOT real AI-generated content). All AI models failed to respond.\n\n`;
+    analysis += `Based on pattern matching of your query, I've identified several potential ChromeOS exploit vectors:\n\n`;
     analysis += `VULNERABILITIES IDENTIFIED:\n`;
     vulnerabilities.forEach((vuln, idx) => {
       analysis += `${idx + 1}. ${vuln}\n`;
@@ -550,11 +701,15 @@ OUTPUT: Code only.
     analysis += `2. Check chromebook-utilities.pages.dev for similar exploits\n`;
     analysis += `3. Analyze the specific component mentioned in your query\n`;
     analysis += `4. Look for authentication/authorization bypass opportunities\n`;
+    analysis += `\n⚠️ To get REAL AI analysis, please ensure:\n`;
+    analysis += `- WebLLM is properly initialized\n`;
+    analysis += `- HuggingFace API is accessible\n`;
+    analysis += `- Network connection is stable\n`;
     
     return {
       vulnerabilities,
       recommendations,
-      confidence: 0.7, // Higher confidence for intelligent fallback
+      confidence: 0.3, // Low confidence - this is NOT real AI, just pattern matching
       rawResponse: analysis,
     };
   }

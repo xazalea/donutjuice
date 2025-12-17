@@ -262,16 +262,21 @@ export class WebLLMIntegration {
 
   /**
    * Chat with the model - optimized for speed
+   * This uses REAL AI models running locally via WebLLM
    */
   async chat(message: string, systemPrompt?: string): Promise<WebLLMResult> {
     const startTime = Date.now();
     
+    console.log('[WebLLM] Starting chat with real AI model:', this.modelName);
+    
     // Ensure initialized
     if (!this.isInitialized) {
+      console.log('[WebLLM] Initializing engine...');
       await this.initialize();
     }
 
     if (!this.engine) {
+      console.error('[WebLLM] Engine not initialized');
       throw new Error('WebLLM engine not initialized');
     }
 
@@ -283,6 +288,8 @@ export class WebLLMIntegration {
           ]
         : [{ role: 'user', content: message }];
 
+      console.log('[WebLLM] Sending request to real AI model...');
+      
       // Optimized chat completion with streaming support
       const chatOptions: any = {
         messages,
@@ -298,16 +305,23 @@ export class WebLLMIntegration {
 
       const response = await this.engine.chat.completions.create(chatOptions);
       const responseTime = Date.now() - startTime;
+      
+      const content = response.choices[0].message.content;
+      console.log(`[WebLLM] Received ${content.length} characters from REAL AI model in ${responseTime}ms`);
+
+      if (!content || content.trim().length === 0) {
+        throw new Error('Empty response from WebLLM model');
+      }
 
       return {
-        content: response.choices[0].message.content,
+        content,
         tokens: response.usage?.total_tokens || 0,
         model: this.modelName,
         responseTime,
       };
     } catch (error) {
-      console.error('WebLLM chat error:', error);
-      throw error;
+      console.error('[WebLLM] Chat error:', error);
+      throw error; // Don't silently fail - let caller handle
     }
   }
 

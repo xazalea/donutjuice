@@ -131,39 +131,88 @@ export class ModelManager {
         }
         
         if (this.webllm.isAvailable()) {
+          console.log('[ModelManager] Using REAL WebLLM AI model');
           const enhancedPrompt = isExploitQuery 
             ? ExploitPrompts.buildChromeOSExploitPrompt(message)
             : systemPrompt;
           const result = await this.webllm.chat(message, enhancedPrompt);
           content = result.content;
-          console.log(`WebLLM response time: ${result.responseTime}ms`);
+          console.log(`[ModelManager] WebLLM REAL AI response: ${result.responseTime}ms, ${result.content.length} chars`);
         } else {
-          // Fallback to Donut
+          // Fallback to Donut (also REAL AI)
+          console.log('[ModelManager] WebLLM not available, using Donut REAL AI model');
           const combinedPrompt = isExploitQuery
             ? ExploitPrompts.buildChromeOSExploitPrompt(message)
             : `${systemPrompt}\n\nUser: ${message}\nAssistant:`;
           const result = await this.donutEngine.analyzeSystemDeeply(combinedPrompt, 'Chat Context');
           content = result.rawResponse || result.vulnerabilities.join('\n');
+          console.log(`[ModelManager] Donut REAL AI response: ${content.length} chars`);
         }
       } else if (this.currentModelId === 'dual-model' || (this.useDualModel && isExploitQuery)) {
-        // Use both models for consensus
+        // Use both REAL models for consensus
+        console.log('[ModelManager] Using DUAL REAL AI models for consensus');
         content = await this.dualModelAnalysis(message, systemPrompt, isExploitQuery);
+        console.log(`[ModelManager] Dual model REAL AI response: ${content.length} chars`);
       } else if (this.currentModelId === 'donut-2.5') {
-        // Use Donut/HuggingFace Logic
+        // Use Donut/HuggingFace - REAL AI
+        console.log('[ModelManager] Using Donut-2.5 REAL AI model');
         const combinedPrompt = isExploitQuery
           ? ExploitPrompts.buildChromeOSExploitPrompt(message)
           : `${systemPrompt}\n\nUser: ${message}\nAssistant:`;
         const result = await this.donutEngine.analyzeSystemDeeply(combinedPrompt, 'Chat Context');
         content = result.rawResponse || result.vulnerabilities.join('\n');
+        console.log(`[ModelManager] Donut REAL AI response: ${content.length} chars`);
       } else {
-        // Use G4F
+        // Use G4F - REAL AI
+        console.log(`[ModelManager] Using G4F REAL AI model: ${this.currentModelId}`);
         content = await this.g4f.chat(message, systemPrompt, this.currentModelId);
+        console.log(`[ModelManager] G4F REAL AI response: ${content.length} chars`);
       }
     } catch (error) {
-      console.error('Chat Error:', error);
+      console.error('[ModelManager] Chat Error:', error);
       const errorMsg = (error as Error).message;
       
-      // Provide helpful fallback response instead of just error message
+      // Only provide fallback if ALL models failed
+      // Try to use a different model as fallback
+      console.log('[ModelManager] Primary model failed, trying alternative...');
+      
+      // Try alternative REAL AI models as backup
+      const backupModels = ['gpt-4o', 'deepseek-v3', 'llama-3.3-70b'];
+      for (const backupModel of backupModels) {
+        if (this.currentModelId === backupModel) continue;
+        try {
+          console.log(`[ModelManager] Trying ${backupModel} REAL AI as backup...`);
+          content = await this.g4f.chat(message, systemPrompt, backupModel);
+          if (content && content.trim().length > 0) {
+            console.log(`[ModelManager] ${backupModel} REAL AI backup succeeded!`);
+            return { content, model: backupModel };
+          }
+        } catch (backupError) {
+          console.warn(`[ModelManager] ${backupModel} backup failed:`, backupError);
+          continue; // Try next backup model
+        }
+      }
+      
+      // Try WebLLM as last backup
+      if (this.webllm) {
+        try {
+          if (!this.webllm.isAvailable()) {
+            await this.webllm.initialize();
+          }
+          if (this.webllm.isAvailable()) {
+            console.log('[ModelManager] Trying WebLLM REAL AI as final backup...');
+            const result = await this.webllm.chat(message, systemPrompt);
+            if (result.content && result.content.trim().length > 0) {
+              console.log('[ModelManager] WebLLM REAL AI backup succeeded!');
+              return { content: result.content, model: 'qwen-webllm' };
+            }
+          }
+        } catch (webllmError) {
+          console.warn('[ModelManager] WebLLM backup failed:', webllmError);
+        }
+      }
+      
+      // Last resort: helpful message but be honest it's not AI
       if (errorMsg.includes('fetch') || errorMsg.includes('network') || errorMsg.includes('CORS')) {
         content = `I'm having trouble connecting to the AI service right now. However, based on your query "${message}", I can help you find ChromeOS exploits:
 
