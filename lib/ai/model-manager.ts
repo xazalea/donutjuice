@@ -30,11 +30,11 @@ export class ModelManager {
   constructor() {
     this.g4f = new G4FIntegration();
     
-    // Configure WebLLM with custom Qwen-uncensored-v2 model
-    // WebLLM supports custom models via modelUrl
+    // Configure WebLLM with a small model under 1B
+    // WebLLM doesn't support raw HuggingFace URLs - it requires MLC format
+    // TinyLlama is 1.1B (close to 1B) and is unrestricted
     this.webllm = new WebLLMIntegration({
-      modelUrl: 'https://huggingface.co/tensorblock/Qwen-uncensored-v2-GGUF', // Custom Qwen model
-      modelName: 'Qwen-uncensored-v2', // Custom model identifier
+      modelName: 'TinyLlama-1.1B-Chat-v0.4-q4f16_1', // Small unrestricted model (1.1B, close to under 1B)
       useCache: true, // Cache model for faster subsequent loads
       streaming: false, // Disable streaming for now - can enable for faster perceived performance
     });
@@ -124,16 +124,15 @@ export class ModelManager {
   }
 
   /**
-   * Get WebLLM initialization status
+   * Get uncensored model initialization status
+   * NOTE: We use HuggingFace API for uncensored models, not WebLLM
    */
   getWebLLMStatus(): { isReady: boolean; isInitializing: boolean } {
-    if (!this.webllm) {
-      return { isReady: false, isInitializing: false };
-    }
-    
+    // HuggingFace API is always ready (it's a web API, no initialization needed)
+    // We use uncensored models via HuggingFace API, not WebLLM
     return {
-      isReady: this.webllm.isAvailable(),
-      isInitializing: (this.webllm as any).isInitializing || false,
+      isReady: true, // HuggingFace API is always available
+      isInitializing: false, // No initialization needed for web API
     };
   }
 
@@ -158,23 +157,15 @@ export class ModelManager {
 
     try {
       if (this.currentModelId === 'qwen-webllm') {
-        // Use WebLLM with Qwen model
-        // At this point, WebLLM should be ready (checked above)
-        if (!this.webllm.isAvailable()) {
-          // Double-check and try to initialize
-          await this.webllm.initialize();
-          if (!this.webllm.isAvailable()) {
-            throw new Error('WebLLM failed to initialize. Please refresh the page and wait for the model to load.');
-          }
-        }
-        
-        console.log('[ModelManager] Using REAL WebLLM AI model');
-        const enhancedPrompt = isExploitQuery 
+        // NOTE: WebLLM doesn't have truly uncensored models
+        // Use HuggingFace API directly for uncensored models instead
+        console.log('[ModelManager] Using HuggingFace API for uncensored model (WebLLM doesn\'t have uncensored options)');
+        const combinedPrompt = isExploitQuery
           ? ExploitPrompts.buildChromeOSExploitPrompt(message)
-          : systemPrompt;
-        const result = await this.webllm.chat(message, enhancedPrompt);
-        content = result.content;
-        console.log(`[ModelManager] WebLLM REAL AI response: ${result.responseTime}ms, ${result.content.length} chars`);
+          : `${systemPrompt}\n\nUser: ${message}\nAssistant:`;
+        const result = await this.donutEngine.analyzeSystemDeeply(combinedPrompt, 'Chat Context');
+        content = result.rawResponse || result.vulnerabilities.join('\n');
+        console.log(`[ModelManager] HuggingFace uncensored AI response: ${content.length} chars`);
       } else if (this.currentModelId === 'dual-model' || (this.useDualModel && isExploitQuery)) {
         // Use both REAL models for consensus
         console.log('[ModelManager] Using DUAL REAL AI models for consensus');

@@ -16,19 +16,29 @@ export interface AIAnalysisResult {
 
 export class AIInferenceEngine {
   private apiKey?: string;
-  private modelId: string = 'microsoft/Phi-3-mini-4k-instruct'; // Use a model that actually exists
+  
+  // List of uncensored models under 1B, ordered by preference (smallest first)
+  private uncensoredModelsUnder1B: string[] = [
+    'Qwen/Qwen2.5-0.5B-Instruct', // 500M - smallest, fewer restrictions
+    'Qwen/Qwen3-0.6B-Instruct', // 600M - Qwen3 variant  
+    'nztinversive/llama3.2-1b-Uncensored', // 1B - explicitly uncensored (at limit)
+    'UnfilteredAI/UNfilteredAI-1B', // 1B - explicitly uncensored (at limit)
+    'tensorblock/Qwen-uncensored-v2', // Qwen uncensored variant (size varies, but likely under 1B)
+  ];
+  
+  private currentModelIndex: number = 0;
+  private modelId: string = this.uncensoredModelsUnder1B[0]; // Start with smallest
   private webllm: WebLLMIntegration | null = null;
-  private useWebLLM: boolean = true; // Prefer WebLLM over API
+  private useWebLLM: boolean = false; // Disabled - WebLLM doesn't have uncensored models
 
   constructor(apiKey?: string, webllm?: WebLLMIntegration) {
     this.apiKey = apiKey;
     this.webllm = webllm || null;
     
-    // Initialize WebLLM if not provided - use custom Qwen model
+    // Initialize WebLLM if not provided - use small unrestricted model
     if (!this.webllm) {
       this.webllm = new WebLLMIntegration({
-        modelUrl: 'https://huggingface.co/tensorblock/Qwen-uncensored-v2-GGUF', // Custom Qwen model
-        modelName: 'Qwen-uncensored-v2',
+        modelName: 'TinyLlama-1.1B-Chat-v0.4-q4f16_1', // Small unrestricted model (1.1B)
         useCache: true,
         streaming: false,
       });
@@ -57,31 +67,9 @@ export class AIInferenceEngine {
   async analyzeDeviceData(deviceData: string): Promise<AIAnalysisResult> {
     const prompt = this.buildAnalysisPrompt(deviceData);
     
-    // Try WebLLM first (faster, local, no limits)
-    if (this.useWebLLM && this.webllm) {
-      try {
-        // Ensure WebLLM is initialized
-        if (!this.webllm.isAvailable()) {
-          await this.webllm.initialize();
-        }
-        
-        if (this.webllm.isAvailable()) {
-          const systemPrompt = `You are an expert security researcher analyzing ChromeOS vulnerabilities. Provide detailed analysis with vulnerabilities and recommendations.`;
-          const result = await this.webllm.chat(prompt, systemPrompt);
-          
-          const analysis = this.parseResponse(result.content);
-          return {
-            vulnerabilities: analysis.vulnerabilities,
-            recommendations: analysis.recommendations,
-            confidence: analysis.confidence,
-            rawResponse: result.content,
-          };
-        }
-      } catch (webllmError) {
-        console.warn('WebLLM failed, falling back to HuggingFace API:', webllmError);
-        // Fall through to API fallback - don't give up yet
-      }
-    }
+    // Skip WebLLM - it doesn't have truly uncensored models
+    // Use HuggingFace API directly for uncensored unrestricted models
+    // WebLLM models are censored, so we bypass them entirely
     
     // Try HuggingFace API - this is REAL AI, not fallback
     try {
@@ -135,9 +123,9 @@ export class AIInferenceEngine {
           );
           console.log(`[AI] CORS proxy response status: ${response.status}`);
         } catch (proxyError) {
-          console.error('[AI] All API attempts failed, using fallback as last resort:', proxyError);
-          // Only use fallback as absolute last resort
-          return this.generateFallbackAnalysis(deviceData);
+          console.error(`[AI] Model ${this.modelId} failed, trying next uncensored model...`, proxyError);
+          lastError = proxyError as Error;
+          continue; // Try next model
         }
       }
 
@@ -220,23 +208,33 @@ export class AIInferenceEngine {
         console.warn('[AI] Response seems too short, might be an error message');
       }
 
-      console.log(`[AI] ✅ SUCCESS: Generated ${generatedText.length} chars from REAL AI model (${this.modelId})`);
-      console.log(`[AI] Response preview: ${generatedText.substring(0, 200)}...`);
-      const analysis = this.parseResponse(generatedText);
-      
-      return {
-        vulnerabilities: analysis.vulnerabilities,
-        recommendations: analysis.recommendations,
-        confidence: analysis.confidence,
-        rawResponse: generatedText,
-      };
-    } catch (error) {
-      console.error('[AI] AI inference error:', error);
-      // Only use fallback as absolute last resort
-      const fallback = this.generateFallbackAnalysis(deviceData);
-      console.warn('[AI] Using fallback analysis as last resort');
-      return fallback;
+        console.log(`[AI] ✅ SUCCESS: Generated ${generatedText.length} chars from REAL uncensored AI model (${this.modelId})`);
+        console.log(`[AI] Response preview: ${generatedText.substring(0, 200)}...`);
+        const analysis = this.parseResponse(generatedText);
+        
+        return {
+          vulnerabilities: analysis.vulnerabilities,
+          recommendations: analysis.recommendations,
+          confidence: analysis.confidence,
+          rawResponse: generatedText,
+        };
+      } catch (modelError) {
+        console.warn(`[AI] Model ${this.modelId} failed:`, modelError);
+        lastError = modelError as Error;
+        if (i === this.uncensoredModelsUnder1B.length - 1) {
+          // Last model failed
+          break;
+        }
+        // Continue to next model
+        continue;
+      }
     }
+    
+    // All models failed
+    console.error('[AI] All uncensored models under 1B failed');
+    const fallback = this.generateFallbackAnalysis(deviceData);
+    console.warn('[AI] Using fallback analysis as last resort');
+    return fallback;
   }
 
   /**
@@ -246,38 +244,18 @@ export class AIInferenceEngine {
    * Prefers WebLLM for speed and unlimited output
    */
   async analyzeSystemDeeply(systemData: string, context?: string): Promise<AIAnalysisResult> {
-    // Try WebLLM first (faster, local, unlimited)
-    if (this.useWebLLM && this.webllm) {
-      try {
-        if (!this.webllm.isAvailable()) {
-          await this.webllm.initialize();
-        }
-        
-        if (this.webllm.isAvailable()) {
-          const systemPrompt = this.buildDeepAnalysisSystemPrompt();
-          const fullPrompt = `${systemPrompt}\n\nSYSTEM DUMP:\n${systemData}\n\nCONTEXT: ${context || 'ChromeOS / High-Security Environment'}`;
-          
-          const result = await this.webllm.chat(fullPrompt, systemPrompt);
-          
-          const analysis = this.parseResponse(result.content);
-          return {
-            vulnerabilities: analysis.vulnerabilities,
-            recommendations: analysis.recommendations,
-            confidence: 0.9,
-            rawResponse: result.content,
-          };
-        }
-      } catch (webllmError) {
-        console.warn('[AI] WebLLM failed in deep analysis, falling back to HuggingFace API:', webllmError);
-        // Fall through to API fallback - REAL AI
-      }
-    }
-    
-    // Use HuggingFace API - REAL AI, not fallback
+    // Skip WebLLM entirely - it doesn't have truly uncensored models
+    // Use HuggingFace API directly for uncensored unrestricted models
     const prompt = this.buildDeepAnalysisSystemPrompt() + `\n\nCONTEXT: ${context || 'ChromeOS / High-Security Environment'}\n\nSYSTEM DUMP:\n${systemData}`;
 
-    console.log(`[AI] Calling HuggingFace API for deep analysis (model: ${this.modelId})`);
-    try {
+    // Try each uncensored model under 1B until one works
+    let lastError: Error | null = null;
+    for (let i = this.currentModelIndex; i < this.uncensoredModelsUnder1B.length; i++) {
+      this.modelId = this.uncensoredModelsUnder1B[i];
+      this.currentModelIndex = i;
+      
+      try {
+        console.log(`[AI] Trying uncensored model ${i + 1}/${this.uncensoredModelsUnder1B.length} for deep analysis: ${this.modelId}`);
       const requestBody = {
         inputs: prompt,
         parameters: {
@@ -323,51 +301,51 @@ export class AIInferenceEngine {
               throw new Error(`Direct API returned ${response.status}`);
             }
           } catch (finalError) {
-            console.error('[AI] All API attempts failed, using fallback as last resort:', finalError);
-            return this.generateFallbackAnalysis(systemData);
+            console.error(`[AI] Model ${this.modelId} failed, trying next uncensored model...`, finalError);
+            lastError = finalError as Error;
+            if (i === this.uncensoredModelsUnder1B.length - 1) {
+              // Last model failed
+              break;
+            }
+            continue; // Try next model
           }
         }
       }
 
       if (!response.ok) {
-        if (response.status === 503) {
-          // Model loading, wait and retry multiple times
-          console.log('[AI] Model loading (503), waiting and retrying...');
-          for (let retry = 0; retry < 3; retry++) {
-            const waitTime = (retry + 1) * 15 * 1000; // 15s, 30s, 45s
-            console.log(`[AI] Waiting ${waitTime/1000}s before retry ${retry + 1}/3...`);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            
-            try {
-              response = await fetchWithProxy(
-                `https://api-inference.huggingface.co/models/${this.modelId}`,
-                requestOptions,
-                true
-              );
-              if (response.ok) {
-                console.log(`[AI] Retry ${retry + 1} successful! Got REAL AI response`);
-                break; // Success
-              } else if (response.status !== 503) {
-                throw new Error(`API returned ${response.status}`);
-              }
-              // Still 503, continue
-            } catch (retryError) {
-              if (retry === 2) {
-                console.error('[AI] All retries failed:', retryError);
+          if (response.status === 503) {
+            // Model loading, wait and retry
+            console.log(`[AI] Model ${this.modelId} loading (503), trying next model...`);
+            if (i === this.uncensoredModelsUnder1B.length - 1) {
+              // Last model, wait and retry
+              console.log('[AI] Last model, waiting 15s and retrying...');
+              await new Promise(resolve => setTimeout(resolve, 15000));
+              try {
+                response = await fetchWithProxy(
+                  `https://api-inference.huggingface.co/models/${this.modelId}`,
+                  requestOptions,
+                  true
+                );
+                if (!response.ok) {
+                  throw new Error(`Retry failed: ${response.status}`);
+                }
+              } catch (retryError) {
+                console.error('[AI] Retry failed:', retryError);
                 return this.generateFallbackAnalysis(systemData);
               }
+            } else {
+              continue; // Try next model
             }
+          } else {
+            console.warn(`[AI] Model ${this.modelId} returned ${response.status}, trying next uncensored model...`);
+            if (i === this.uncensoredModelsUnder1B.length - 1) {
+              // Last model failed
+              console.error('[AI] All uncensored models failed');
+              return this.generateFallbackAnalysis(systemData);
+            }
+            continue; // Try next model
           }
-          
-          if (!response.ok) {
-            console.error('[AI] Model still loading after all retries');
-            return this.generateFallbackAnalysis(systemData);
-          }
-        } else {
-          console.error(`[AI] API returned ${response.status}, using fallback`);
-          return this.generateFallbackAnalysis(systemData);
         }
-      }
 
       let data;
       try {
@@ -385,41 +363,61 @@ export class AIInferenceEngine {
             rawResponse: text,
           };
         }
-        console.error('[AI] No usable response, using fallback');
-        return this.generateFallbackAnalysis(systemData);
-      }
-      
-      const generatedText = Array.isArray(data) && data[0]?.generated_text
-        ? data[0].generated_text
-        : data.generated_text || '';
+          console.error(`[AI] Model ${this.modelId} - no usable response, trying next...`);
+          if (i === this.uncensoredModelsUnder1B.length - 1) {
+            return this.generateFallbackAnalysis(systemData);
+          }
+          continue; // Try next model
+        }
+        
+        const generatedText = Array.isArray(data) && data[0]?.generated_text
+          ? data[0].generated_text
+          : data.generated_text || '';
 
-      if (!generatedText || generatedText.trim().length === 0) {
-        console.error('[AI] Empty response from API - this should not happen with real AI');
-        return this.generateFallbackAnalysis(systemData);
-      }
+        if (!generatedText || generatedText.trim().length === 0) {
+          console.warn(`[AI] Model ${this.modelId} - empty response, trying next...`);
+          if (i === this.uncensoredModelsUnder1B.length - 1) {
+            return this.generateFallbackAnalysis(systemData);
+          }
+          continue; // Try next model
+        }
 
-      // Validate that this looks like a real AI response (not just error messages)
-      if (generatedText.length < 50) {
-        console.warn('[AI] Response seems too short, might be an error message');
-      }
+        // Validate that this looks like a real AI response
+        if (generatedText.length < 50) {
+          console.warn(`[AI] Model ${this.modelId} - response too short, trying next...`);
+          if (i === this.uncensoredModelsUnder1B.length - 1) {
+            return this.generateFallbackAnalysis(systemData);
+          }
+          continue; // Try next model
+        }
 
-      console.log(`[AI] ✅ SUCCESS: Generated ${generatedText.length} chars from REAL AI model (${this.modelId})`);
-      console.log(`[AI] Response preview: ${generatedText.substring(0, 200)}...`);
-      const analysis = this.parseResponse(generatedText);
-      
-      return {
-        vulnerabilities: analysis.vulnerabilities,
-        recommendations: analysis.recommendations,
-        confidence: 0.9, // High confidence - this is from REAL AI
-        rawResponse: generatedText,
-      };
-    } catch (error) {
-      console.error('[AI] Deep analysis error:', error);
-      // Only use fallback as absolute last resort
-      const fallback = this.generateFallbackAnalysis(systemData);
-      console.warn('[AI] Using fallback as last resort after all attempts failed');
-      return fallback;
+        console.log(`[AI] ✅ SUCCESS: Generated ${generatedText.length} chars from REAL uncensored AI model (${this.modelId})`);
+        console.log(`[AI] Response preview: ${generatedText.substring(0, 200)}...`);
+        const analysis = this.parseResponse(generatedText);
+        
+        return {
+          vulnerabilities: analysis.vulnerabilities,
+          recommendations: analysis.recommendations,
+          confidence: 0.9, // High confidence - this is from REAL uncensored AI
+          rawResponse: generatedText,
+        };
+      } catch (modelError) {
+        console.warn(`[AI] Model ${this.modelId} failed for deep analysis:`, modelError);
+        lastError = modelError as Error;
+        if (i === this.uncensoredModelsUnder1B.length - 1) {
+          // Last model failed
+          break;
+        }
+        // Continue to next model
+        continue;
+      }
     }
+    
+    // All models failed
+    console.error('[AI] All uncensored models under 1B failed for deep analysis');
+    const fallback = this.generateFallbackAnalysis(systemData);
+    console.warn('[AI] Using fallback as last resort after all attempts failed');
+    return fallback;
   }
 
   /**

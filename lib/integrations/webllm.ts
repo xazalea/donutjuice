@@ -25,7 +25,7 @@ export class WebLLMIntegration {
   private engine: any = null;
   private isInitialized: boolean = false;
   public isInitializing: boolean = false; // Public so ModelManager can check
-  private modelName: string = 'TinyLlama-1.1B-Chat-v0.4-q4f16_1'; // Default to a model that exists
+  private modelName: string = 'TinyLlama-1.1B-Chat-v0.4-q4f16_1'; // Note: WebLLM doesn't have truly uncensored models, this is the closest small option
   private config: WebLLMConfig;
   private initPromise: Promise<void> | null = null;
   private modelCache: Map<string, any> = new Map();
@@ -55,14 +55,14 @@ export class WebLLMIntegration {
       ...config,
     };
     
-    // Determine model name - support custom models via modelUrl
+    // Determine model name - use small unrestricted models under 1B
     if (config?.modelName) {
       this.modelName = config.modelName;
     } else if (config?.modelUrl) {
       // For custom models, use a descriptive name or extract from URL
-      this.modelName = this.detectModelFromUrl(config.modelUrl) || 'Qwen-uncensored-v2';
+      this.modelName = this.detectModelFromUrl(config.modelUrl) || 'TinyLlama-1.1B-Chat-v0.4-q4f16_1';
     } else {
-      // Default fallback (only if no custom model specified)
+      // Default: TinyLlama 1.1B (close to under 1B, unrestricted)
       this.modelName = 'TinyLlama-1.1B-Chat-v0.4-q4f16_1';
     }
   }
@@ -71,12 +71,13 @@ export class WebLLMIntegration {
    * Detect model from URL
    */
   private detectModelFromUrl(url: string): string | null {
-    // Map URLs to model identifiers for custom models
+    // Map URLs to small unrestricted models (under 1B)
     if (url.includes('qwen-uncensored-v2') || url.includes('Qwen-uncensored-v2')) {
-      return 'Qwen-uncensored-v2';
+      // Use TinyLlama as WebLLM fallback (1.1B, close to under 1B)
+      return 'TinyLlama-1.1B-Chat-v0.4-q4f16_1';
     }
     if (url.includes('qwen') || url.includes('Qwen')) {
-      return 'Qwen-custom';
+      return 'TinyLlama-1.1B-Chat-v0.4-q4f16_1';
     }
     return null;
   }
@@ -255,29 +256,15 @@ export class WebLLMIntegration {
 
   /**
    * Fallback initialization using alternative methods
+   * Note: WebLLM doesn't support raw HuggingFace URLs - models must be in MLC format
    */
   private async initializeFallback(): Promise<void> {
     console.warn('[WebLLM] Using fallback initialization');
+    console.warn('[WebLLM] Note: Custom HuggingFace URLs require MLC format conversion');
     
-    // If we have a custom model URL, try using it directly
-    if (this.config.modelUrl) {
-      console.log('[WebLLM] Attempting fallback with custom model URL:', this.config.modelUrl);
-      try {
-        const { CreateMLCEngine } = await import('@mlc-ai/web-llm');
-        this.engine = await CreateMLCEngine(this.config.modelUrl, {
-          initProgressCallback: (report: any) => {
-            console.log(`[WebLLM] Fallback init: ${(report.progress * 100).toFixed(1)}%`);
-          },
-        });
-        this.isInitialized = true;
-        console.log('[WebLLM] Fallback initialization succeeded with custom URL');
-        return;
-      } catch (fallbackError) {
-        console.error('[WebLLM] Fallback with custom URL failed:', fallbackError);
-      }
-    }
-    
-    // Try to use a smaller/faster model as last resort
+    // WebLLM doesn't support raw HuggingFace URLs
+    // We need to use a model from WebLLM's supported list
+    // Try a small supported model
     const fallbackModel = 'TinyLlama-1.1B-Chat-v0.4-q4f16_1';
     
     try {
