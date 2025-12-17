@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Code, RefreshCw } from 'lucide-react'
 import { ModelManager } from '@lib/ai/model-manager'
-import { PersistentExploitFinder, ExploitSearchProgress } from '@lib/chromeos/persistent-exploit-finder'
+import { PersistentExploitFinder } from '@lib/chromeos/persistent-exploit-finder'
 import { ModelLoadingIndicator } from '../components/ModelLoadingIndicator'
 import './SearchPage.css'
 
@@ -11,9 +11,7 @@ export function SearchPage() {
   const [logs, setLogs] = useState<string[]>([])
   const [status, setStatus] = useState<'searching' | 'analyzing' | 'found' | 'retrying'>('searching')
   const [attempt, setAttempt] = useState(0)
-  const [currentSource, setCurrentSource] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
-  const [modelManager] = useState(() => new ModelManager())
   const [exploitFinder] = useState(() => {
     const manager = new ModelManager();
     const finder = new PersistentExploitFinder(manager, (progress) => {
@@ -155,7 +153,7 @@ export function SearchPage() {
               </div>
             )
           })}
-          {status !== 'error' && <div className="cursor-block"></div>}
+          {(status as string) !== 'error' && <div className="cursor-block"></div>}
         </div>
       </div>
       

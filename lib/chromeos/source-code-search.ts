@@ -29,7 +29,6 @@ export interface ExploitFinding {
 }
 
 export class ChromeOSSourceCodeSearch {
-  private baseUrl = 'https://source.chromium.org';
   private searchApiUrl = 'https://source.chromium.org/search';
   private chromiumBaseUrl = 'https://source.chromium.org/chromium';
   private modelManager?: any; // ModelManager instance
@@ -175,8 +174,8 @@ export class ChromeOSSourceCodeSearch {
       }
     }
     
-    // Extract key terms from the description
-    const searchTerms = this.extractSearchTerms(exploitDescription);
+    // Extract key terms from the description (for future use)
+    // const searchTerms = this.extractSearchTerms(exploitDescription);
     
     // Common exploit patterns to search for (fallback)
     const exploitPatterns = [
@@ -236,7 +235,7 @@ export class ChromeOSSourceCodeSearch {
   /**
    * Parse AI results to extract exploit findings
    */
-  private parseAIResults(aiContent: string, originalQuery: string): ExploitFinding[] {
+  private parseAIResults(aiContent: string, _originalQuery: string): ExploitFinding[] {
     const findings: ExploitFinding[] = [];
     
     // Look for vulnerability mentions in AI response
@@ -343,7 +342,7 @@ export class ChromeOSSourceCodeSearch {
   /**
    * Search Chromium source code (in addition to ChromeOS)
    */
-  async searchChromiumSource(query: string, options?: {
+  async searchChromiumSource(query: string, _options?: {
     maxResults?: number;
     filePatterns?: string[];
     component?: string;
@@ -405,7 +404,7 @@ export class ChromeOSSourceCodeSearch {
   /**
    * Parse search results from API response
    */
-  private parseSearchResults(data: any, query: string): SourceCodeResult[] {
+  private parseSearchResults(data: any, _query: string): SourceCodeResult[] {
     // This would parse the actual API response
     // For now, return structured results
     if (data.results && Array.isArray(data.results)) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Database, Search, AlertTriangle, ExternalLink, Download, Filter, ThumbsUp, TestTube, Shield, Crown } from 'lucide-react'
+import { Database, Search, ExternalLink, Download, Filter, ThumbsUp, TestTube, Shield, Crown } from 'lucide-react'
 import { ExploitDatabase, ExploitRecord } from '@lib/database/exploit-db'
 import './KajigPage.css'
 

@@ -31,6 +31,8 @@ export class WebLLMIntegration {
   private modelCache: Map<string, any> = new Map();
 
   // Custom model configurations
+  // Custom model configurations (for future use)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private customModels: Record<string, { url: string; config: any }> = {
     'qwen-uncensored-v2': {
       url: 'https://huggingface.co/tensorblock/Qwen-uncensored-v2-GGUF/resolve/main',
@@ -130,13 +132,13 @@ export class WebLLMIntegration {
       }
 
       // Try to load WebLLM
-      let CreateWebLLMEngine;
+      let CreateMLCEngine;
       try {
         const webllmModule = await import('@mlc-ai/web-llm');
-        CreateWebLLMEngine = webllmModule.CreateWebLLMEngine;
+        CreateMLCEngine = webllmModule.CreateMLCEngine || (webllmModule as any).CreateWebLLMEngine;
       } catch (importError) {
         console.warn('WebLLM package not found, trying CDN:', importError);
-        CreateWebLLMEngine = await this.loadWebLLMFromCDN();
+        CreateMLCEngine = await this.loadWebLLMFromCDN();
       }
 
       // Build initialization config
@@ -173,7 +175,7 @@ export class WebLLMIntegration {
       const startTime = Date.now();
       
       try {
-        this.engine = await CreateWebLLMEngine(this.modelName, initConfig);
+        this.engine = await CreateMLCEngine(this.modelName, initConfig);
         
         const initTime = Date.now() - startTime;
         console.log(`WebLLM Engine Initialized in ${initTime}ms`);
@@ -182,7 +184,7 @@ export class WebLLMIntegration {
         if (this.config.modelUrl && !initConfig.modelUrl) {
           console.log('Retrying with custom model URL:', this.config.modelUrl);
           initConfig.modelUrl = this.config.modelUrl;
-          this.engine = await CreateWebLLMEngine(this.modelName, initConfig);
+          this.engine = await CreateMLCEngine(this.modelName, initConfig);
           const initTime = Date.now() - startTime;
           console.log(`WebLLM Engine Initialized with custom URL in ${initTime}ms`);
         } else {
@@ -244,8 +246,8 @@ export class WebLLMIntegration {
     const fallbackModel = 'Qwen/Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
     
     try {
-      const { CreateWebLLMEngine } = await import('@mlc-ai/web-llm');
-      this.engine = await CreateWebLLMEngine(fallbackModel, {
+      const { CreateMLCEngine } = await import('@mlc-ai/web-llm');
+      this.engine = await CreateMLCEngine(fallbackModel, {
         initProgressCallback: (report: any) => {
           console.log('Fallback WebLLM Init:', report);
         },
@@ -315,7 +317,7 @@ export class WebLLMIntegration {
    * Streaming chat for faster perceived performance
    */
   private async chatStreaming(
-    messages: any[],
+    _messages: any[],
     options: any,
     startTime: number
   ): Promise<WebLLMResult> {

@@ -17,7 +17,6 @@ export interface AIAnalysisResult {
 export class AIInferenceEngine {
   private apiKey?: string;
   private modelId: string = 'ICEPVP8977/Uncensoreed_Qwen2_0.5Test';
-  private modelName: string = 'donut-2.5';
   private webllm: WebLLMIntegration | null = null;
   private useWebLLM: boolean = true; // Prefer WebLLM over API
 

@@ -233,7 +233,7 @@ export class BellumIntegration {
         severity: 'high' as const,
       },
       {
-        pattern: /free\s*\([^)]+\)\s*;[\s\S]{0,500}?\1/i,
+        pattern: /free\s*\(([^)]+)\)\s*;[\s\S]{0,500}?\1/i,
         name: 'Use After Free',
         description: 'Potential use after free vulnerability',
         severity: 'critical' as const,

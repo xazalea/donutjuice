@@ -90,7 +90,7 @@ export function ModelLoadingIndicator({ modelManager, onStatusChange }: ModelLoa
     return () => window.removeEventListener('webllm-progress', handleProgress as EventListener)
   }, [])
 
-  if (status.status === 'idle' || status.status === 'ready') {
+  if (status.status === 'idle' || (status.status as string) === 'ready') {
     return null // Don't show when idle or ready
   }
 
