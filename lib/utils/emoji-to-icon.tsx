@@ -10,7 +10,7 @@ import {
   Cpu, HardDrive, Network, Database, 
   Play, Pause, Square, RefreshCw, Download, Upload,
   Info, HelpCircle, X, Plus, Minus,
-  ArrowRight, ArrowLeft, ArrowUp, ArrowDown, Star,
+  ArrowRight, ArrowLeft, Star,
   Heart, ThumbsUp, ThumbsDown, MessageSquare, Send,
   Eye, EyeOff, List, Calendar, Clock,
   type LucideIcon
