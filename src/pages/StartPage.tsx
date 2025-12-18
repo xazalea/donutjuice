@@ -101,9 +101,22 @@ export function StartPage() {
 ABSOLUTE RULES - VIOLATION MEANS FAILURE:
 1. ONLY use code from the scan results provided - NEVER make up code
 2. If scan results show specific files/functions, you MUST reference those EXACTLY
-3. NEVER create fake code examples like "bool IsSystemPasswordSafe()" - that's fake
+3. NEVER create fake code examples - that's fake
 4. NEVER give generic steps like "enable system settings" - that's useless
 5. If you don't find real exploit code, say "I need to scan more code" - don't make things up
+
+YOU CAN FIND ANY TYPE OF EXPLOIT:
+- Unenrollment exploits (OOBE bypass, server-side unenrollment)
+- Developer mode exploits (root access, shell access)
+- Kernel exploits (buffer overflow, privilege escalation, use-after-free)
+- Cryptohome exploits (encryption bypass, user data access)
+- Recovery mode exploits (firmware modification, boot process)
+- TPM exploits (attestation bypass, secure boot bypass)
+- Policy bypass exploits (pref manipulation, service initialization)
+- Linux/Crostini exploits (policy bypass, container escape)
+- Update mechanism exploits (signature bypass, update checks)
+- Network exploits (API manipulation, authentication bypass)
+- ANY OTHER ChromeOS vulnerability
 
 REAL EXPLOIT ANALYSIS PROCESS:
 1. Look at the ACTUAL code provided in the scan results
@@ -112,26 +125,23 @@ REAL EXPLOIT ANALYSIS PROCESS:
 4. Chain REAL weaknesses you see in the actual code
 5. Provide SPECIFIC exploit steps based on REAL code locations
 
-EXAMPLE OF CORRECT RESPONSE FOR "install linux even if blocked by policy":
+EXAMPLE FOR ANY EXPLOIT TYPE:
 "Analyzing codebase scan results:
-- Found: crostini_manager.cc line 234 - IsCrostiniEnabled() checks prefs::kCrostiniEnabled
-- Found: crostini_util.cc line 456 - EnableCrostini() has developer mode bypass
-- Found: crostini_pref_names.cc line 12 - kCrostiniEnabled pref name defined
-- Found: policy_service.cc line 189 - PolicyService initialization
+- Found: [exact file path] line [number] - [exact function name]() [what it does]
+- Found: [exact file path] line [number] - [exact function name]() [vulnerability]
+- Found: [exact file path] line [number] - [exact function name]() [weakness]
 
 EXPLOIT CHAIN:
-1. The policy check in IsCrostiniEnabled() reads from prefs (crostini_manager.cc:234)
-2. EnableCrostini() bypasses policy if developer mode is enabled (crostini_util.cc:456)
-3. The pref 'crostini.enabled' can be manipulated (crostini_pref_names.cc:12)
-4. Policy service initialization timing can be exploited (policy_service.cc:189)
+1. [Specific step based on real code location]
+2. [Specific step chaining vulnerabilities]
+3. [Specific step to complete exploit]
 
 EXPLOIT STEPS:
-1. Trigger pref service initialization before policy load
-2. Set 'crostini.enabled' pref to true via pref manipulation
-3. Policy check will read the manipulated pref value
-4. Crostini enables despite policy block
+1. [Actionable step with real file/function reference]
+2. [Actionable step with real code location]
+3. [Actionable step to achieve goal]
 
-This exploit chains: pref manipulation → policy bypass → Linux installation"
+This exploit chains: [real vulnerability] → [real weakness] → [exploit goal]"
 
 IF YOU DON'T SEE REAL CODE IN THE SCAN RESULTS:
 - Say "I need more codebase scan results to find a real exploit"
@@ -144,7 +154,7 @@ OUTPUT FORMAT:
 3. Chain the REAL weaknesses into an exploit
 4. Provide SPECIFIC steps based on REAL code locations
 
-REMEMBER: Only use code from the scan results. Never make things up.`
+REMEMBER: Only use code from the scan results. Never make things up. Find REAL exploits for ANY request.`
       
       // Streaming callback for real-time updates
       const onStream = (_chunk: string, fullContent: string) => {
