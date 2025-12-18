@@ -18,13 +18,14 @@ export class AIInferenceEngine {
   private apiKey?: string;
   
   // List of uncensored models under 1B, ordered by preference (smallest first)
+  // These are explicitly uncensored/unrestricted models that won't refuse requests
   private uncensoredModelsUnder1B: string[] = [
-    'Qwen/Qwen2.5-0.5B-Instruct', // 500M - smallest, fewer restrictions
+    'nztinversive/llama3.2-1b-Uncensored', // 1B - EXPLICITLY uncensored, won't refuse
+    'UnfilteredAI/UNfilteredAI-1B', // 1B - EXPLICITLY uncensored, won't refuse
+    'tensorblock/Qwen-uncensored-v2', // Qwen uncensored variant - explicitly uncensored
+    'Qwen/Qwen2.5-0.5B-Instruct', // 500M - fewer restrictions but may still refuse
     'Qwen/Qwen2.5-0.5B', // 500M - alternative format
-    'Qwen/Qwen3-0.6B-Instruct', // 600M - Qwen3 variant  
-    'nztinversive/llama3.2-1b-Uncensored', // 1B - explicitly uncensored (at limit)
-    'UnfilteredAI/UNfilteredAI-1B', // 1B - explicitly uncensored (at limit)
-    'tensorblock/Qwen-uncensored-v2', // Qwen uncensored variant (size varies, but likely under 1B)
+    'Qwen/Qwen3-0.6B-Instruct', // 600M - Qwen3 variant
   ];
   
   private currentModelIndex: number = 0;
