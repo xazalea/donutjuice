@@ -173,10 +173,30 @@ export class ModelManager {
                           message.toLowerCase().includes('chromeos') ||
                           message.toLowerCase().includes('unenrollment');
     
-    // DO NOT scan codebase during chat phase - that happens during analysis
-    // The chat phase is only for understanding the user's query quickly
-    // Codebase scanning happens in PersistentExploitFinder.findExploit()
-    const enhancedSystemPrompt = systemPrompt;
+    // ALWAYS scan the ENTIRE codebase during chat phase to provide real, actionable information
+    let codebaseContext = '';
+    if (isExploitQuery || true) { // Always scan to provide real code references
+      try {
+        onStream?.('', 'Scanning ChromeOS codebase for relevant code...');
+        const { ChromeOSSourceCodeSearch } = await import('@lib/chromeos/source-code-search');
+        const codeSearch = new ChromeOSSourceCodeSearch(this, undefined);
+        codebaseContext = await codeSearch.scanEntireCodebase(message, (progress) => {
+          onStream?.('', progress);
+        });
+        // Check for abort after scanning
+        if (abortSignal?.aborted) {
+          throw new Error('Request aborted by user');
+        }
+      } catch (error) {
+        console.warn('Codebase scan failed, continuing without it:', error);
+        codebaseContext = 'Codebase scan unavailable.';
+      }
+    }
+    
+    // Enhance system prompt with actual codebase context
+    const enhancedSystemPrompt = codebaseContext 
+      ? `${systemPrompt}\n\n=== ACTUAL CHROMEOS CODEBASE SCAN RESULTS ===\n${codebaseContext}\n\nIMPORTANT: Use the above REAL codebase scan results. Reference specific files, functions, and code snippets. Provide actionable information based on actual source code found. Be concise but informative.`
+      : systemPrompt;
 
     try {
       // Prefer WebLLM for unrestricted models under 1B
