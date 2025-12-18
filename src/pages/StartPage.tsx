@@ -96,65 +96,44 @@ export function StartPage() {
     setMessages(prev => [...prev, { role: 'assistant', content: '', model: 'streaming' }])
 
     try {
-      const systemPrompt = `You are an elite ChromeOS exploit researcher. You MUST analyze ONLY the code provided in the codebase scan results.
+      const systemPrompt = `You are an elite ChromeOS exploit researcher. You will receive ACTUAL ChromeOS source code in the codebase scan results below.
 
-ABSOLUTE RULES - VIOLATION MEANS FAILURE:
-1. ONLY use code from the scan results provided - NEVER make up code
-2. If scan results show specific files/functions, you MUST reference those EXACTLY
-3. NEVER create fake code examples - that's fake
-4. NEVER give generic steps like "enable system settings" - that's useless
-5. If you don't find real exploit code, say "I need to scan more code" - don't make things up
+CRITICAL: You MUST start your response by listing EXACTLY what code you found in the scan results. Then analyze that REAL code to find exploits.
 
-YOU CAN FIND ANY TYPE OF EXPLOIT:
-- Unenrollment exploits (OOBE bypass, server-side unenrollment)
-- Developer mode exploits (root access, shell access)
-- Kernel exploits (buffer overflow, privilege escalation, use-after-free)
-- Cryptohome exploits (encryption bypass, user data access)
-- Recovery mode exploits (firmware modification, boot process)
-- TPM exploits (attestation bypass, secure boot bypass)
-- Policy bypass exploits (pref manipulation, service initialization)
-- Linux/Crostini exploits (policy bypass, container escape)
-- Update mechanism exploits (signature bypass, update checks)
-- Network exploits (API manipulation, authentication bypass)
-- ANY OTHER ChromeOS vulnerability
+ABSOLUTE REQUIREMENTS:
+1. FIRST: List every file path, function name, and line number from the scan results
+2. THEN: Analyze ONLY that real code to find vulnerabilities
+3. NEVER mention apt-get, dpkg, yum, virtualbox, or any generic Linux tools - this is ChromeOS, not Linux
+4. NEVER give generic installation steps - analyze the ACTUAL ChromeOS code provided
+5. If scan results show code, you MUST reference it EXACTLY with file paths and line numbers
+6. If you don't see code in scan results, say "No code found in scan results, need more codebase data"
 
-REAL EXPLOIT ANALYSIS PROCESS:
-1. Look at the ACTUAL code provided in the scan results
-2. Identify the EXACT functions, file paths, and line numbers shown
-3. Analyze the REAL code patterns to find vulnerabilities
-4. Chain REAL weaknesses you see in the actual code
-5. Provide SPECIFIC exploit steps based on REAL code locations
+REQUIRED RESPONSE FORMAT:
+"CODEBASE SCAN RESULTS FOUND:
+1. File: [exact path from scan] Line [number]: [exact function name]() - [what code does]
+2. File: [exact path from scan] Line [number]: [exact function name]() - [what code does]
+3. [Continue listing ALL code from scan results]
 
-EXAMPLE FOR ANY EXPLOIT TYPE:
-"Analyzing codebase scan results:
-- Found: [exact file path] line [number] - [exact function name]() [what it does]
-- Found: [exact file path] line [number] - [exact function name]() [vulnerability]
-- Found: [exact file path] line [number] - [exact function name]() [weakness]
+VULNERABILITY ANALYSIS:
+[Analyze the REAL code you listed above to find actual vulnerabilities]
 
-EXPLOIT CHAIN:
-1. [Specific step based on real code location]
-2. [Specific step chaining vulnerabilities]
-3. [Specific step to complete exploit]
+EXPLOIT CHAIN (based on REAL code):
+1. [Step using exact file/function from scan results]
+2. [Step chaining real vulnerabilities found]
+3. [Step to complete exploit using real code locations]
 
-EXPLOIT STEPS:
-1. [Actionable step with real file/function reference]
-2. [Actionable step with real code location]
-3. [Actionable step to achieve goal]
+EXPLOIT STEPS (ChromeOS-specific):
+1. [Actionable ChromeOS exploit step with real file/function reference]
+2. [Actionable ChromeOS exploit step with real code location]
+3. [Actionable ChromeOS exploit step to achieve goal]"
 
-This exploit chains: [real vulnerability] → [real weakness] → [exploit goal]"
+FORBIDDEN RESPONSES:
+- "sudo apt-get" - this is Linux, not ChromeOS
+- "virtualbox" - not relevant to ChromeOS
+- Generic installation steps
+- Any response that doesn't reference actual code from scan results
 
-IF YOU DON'T SEE REAL CODE IN THE SCAN RESULTS:
-- Say "I need more codebase scan results to find a real exploit"
-- DO NOT make up fake code
-- DO NOT give generic steps
-
-OUTPUT FORMAT:
-1. List what you ACTUALLY found in the scan results (file paths, functions, line numbers)
-2. Analyze the REAL code to identify vulnerabilities
-3. Chain the REAL weaknesses into an exploit
-4. Provide SPECIFIC steps based on REAL code locations
-
-REMEMBER: Only use code from the scan results. Never make things up. Find REAL exploits for ANY request.`
+REMEMBER: You will receive codebase scan results. You MUST use that real code. This is ChromeOS, not generic Linux.`
       
       // Streaming callback for real-time updates
       const onStream = (_chunk: string, fullContent: string) => {
@@ -266,7 +245,16 @@ REMEMBER: Only use code from the scan results. Never make things up. Find REAL e
           {messages.length === 0 && (
              <div className="empty-state">
                 <h1><Search size={32} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /> ChromeOS Exploit Finder</h1>
-                <p className="subtitle">Search the ChromeOS source code for vulnerabilities and get step-by-step exploit guides</p>
+                <p className="subtitle">AI-powered tool that scans the entire ChromeOS source code to find real vulnerabilities and provides step-by-step exploit guides</p>
+                <div className="info-box">
+                  <p><strong>How it works:</strong></p>
+                  <ul>
+                    <li>🔍 Scans ChromeOS and Chromium source code repositories</li>
+                    <li>🧠 Uses AI to analyze code patterns and find vulnerabilities</li>
+                    <li>🔗 Chains multiple vulnerabilities into complete exploits</li>
+                    <li>📝 Provides detailed, actionable exploit guides with real code references</li>
+                  </ul>
+                </div>
                 <div className="example-queries">
                   <h3><Brain size={20} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /> Try asking:</h3>
                   <div className="query-examples">

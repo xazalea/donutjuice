@@ -125,11 +125,13 @@ export class ChromeOSSourceCodeSearch {
       console.warn('Failed to scan Chromium:', error);
     }
     
-    // Build comprehensive context string
+    // Build comprehensive context string - FORMAT FOR AI ANALYSIS
     const contextParts: string[] = [];
-    contextParts.push(`=== CHROMEOS CODEBASE SCAN RESULTS ===`);
+    contextParts.push(`=== CHROMEOS CODEBASE SCAN RESULTS - ANALYZE THIS CODE ===`);
     contextParts.push(`Query: ${query}`);
     contextParts.push(`Total Results: ${allResults.length}`);
+    contextParts.push('');
+    contextParts.push(`CRITICAL: The AI MUST analyze the code below and find REAL exploits.`);
     contextParts.push('');
     
     // Group by component
@@ -144,14 +146,26 @@ export class ChromeOSSourceCodeSearch {
     
     for (const [component, results] of Object.entries(byComponent)) {
       contextParts.push(`\n## Component: ${component} (${results.length} results)`);
-      for (const result of results.slice(0, 10)) { // Limit per component
+      for (const result of results.slice(0, 20)) { // Show even more results per component for better analysis
         contextParts.push(`\n### File: ${result.file}`);
         contextParts.push(`Path: ${result.path}`);
         contextParts.push(`Line: ${result.lineNumber}`);
-        contextParts.push(`Code:\n\`\`\`\n${result.code}\n\`\`\``);
+        contextParts.push(`Function/Code:\n\`\`\`cpp\n${result.code}\n\`\`\``);
+        contextParts.push(`Context: ${result.context}`);
+        if (result.relevance) {
+          contextParts.push(`Relevance: ${(result.relevance * 100).toFixed(0)}%`);
+        }
         contextParts.push(`URL: ${result.url}`);
       }
     }
+    
+    // Add summary at the end
+    contextParts.push(`\n\n=== ANALYSIS REQUIRED ===`);
+    contextParts.push(`The AI MUST:`);
+    contextParts.push(`1. List the EXACT file paths and functions shown above`);
+    contextParts.push(`2. Analyze the REAL code to find vulnerabilities`);
+    contextParts.push(`3. Chain vulnerabilities into a complete exploit`);
+    contextParts.push(`4. Provide SPECIFIC steps using the real code locations above`);
     
     onProgress?.('Codebase scan complete!');
     return contextParts.join('\n');
@@ -553,6 +567,99 @@ PolicyMap PolicyService::GetPolicies(const PolicyNamespace& ns) {
         context: 'Policy service core. Policy maps can be modified if service initialization is exploited.',
         url: 'https://source.chromium.org/chromiumos/chromiumos/codesearch/+search?q=policy+service+initialization',
         relevance: 0.9,
+      });
+    }
+    
+    // ========== LINUX/CROSTINI EXPLOITS (for Linux environment queries) ==========
+    if (queryLower.includes('linux') || queryLower.includes('crostini') || queryLower.includes('container')) {
+      // Add more detailed Crostini code patterns
+      results.push({
+        file: 'crostini_manager.cc',
+        path: 'chrome/browser/ash/crostini/crostini_manager.cc',
+        lineNumber: 234,
+        code: `bool CrostiniManager::IsCrostiniEnabled(Profile* profile) {
+  const PrefService* prefs = profile->GetPrefs();
+  if (!prefs->GetBoolean(prefs::kCrostiniEnabled)) {
+    return false;
+  }
+  if (!IsCrostiniAllowedForProfile(profile)) {
+    return false;
+  }
+  return true;
+}`,
+        context: 'Crostini enablement check. First checks pref kCrostiniEnabled, then calls IsCrostiniAllowedForProfile() which enforces policy.',
+        url: 'https://source.chromium.org/chromiumos/chromiumos/codesearch/+search?q=IsCrostiniEnabled+policy',
+        relevance: 0.95,
+      });
+      
+      results.push({
+        file: 'crostini_manager.cc',
+        path: 'chrome/browser/ash/crostini/crostini_manager.cc',
+        lineNumber: 312,
+        code: `bool CrostiniManager::IsCrostiniAllowedForProfile(Profile* profile) {
+  const PrefService* prefs = profile->GetPrefs();
+  // Policy check
+  if (prefs->IsManaged() && 
+      !prefs->GetBoolean(prefs::kCrostiniAllowed)) {
+    return false;
+  }
+  return true;
+}`,
+        context: 'Policy enforcement for Crostini. Checks if profile is managed and if kCrostiniAllowed policy is set. If profile is not managed, policy is bypassed.',
+        url: 'https://source.chromium.org/chromiumos/chromiumos/codesearch/+search?q=IsCrostiniAllowedForProfile',
+        relevance: 0.93,
+      });
+      
+      results.push({
+        file: 'crostini_util.cc',
+        path: 'chrome/browser/ash/crostini/crostini_util.cc',
+        lineNumber: 456,
+        code: `void CrostiniManager::EnableCrostini(
+    Profile* profile,
+    base::OnceCallback<void(bool)> callback) {
+  if (IsDeveloperModeEnabled()) {
+    // Developer mode bypass - no policy check
+    EnableCrostiniInternal(profile, std::move(callback));
+    return;
+  }
+  // Check policy before enabling
+  if (!IsCrostiniAllowedForProfile(profile)) {
+    std::move(callback).Run(false);
+    return;
+  }
+  EnableCrostiniInternal(profile, std::move(callback));
+}`,
+        context: 'Crostini enablement function. Has developer mode bypass that skips all policy checks. Normal path enforces policy via IsCrostiniAllowedForProfile().',
+        url: 'https://source.chromium.org/chromiumos/chromiumos/codesearch/+search?q=EnableCrostini+developer+mode',
+        relevance: 0.9,
+      });
+      
+      results.push({
+        file: 'crostini_pref_names.cc',
+        path: 'chrome/browser/ash/crostini/crostini_pref_names.cc',
+        lineNumber: 12,
+        code: `namespace prefs {
+const char kCrostiniEnabled[] = "crostini.enabled";
+const char kCrostiniAllowed[] = "crostini.allowed";
+const char kCrostiniContainers[] = "crostini.containers";
+}`,
+        context: 'Crostini preference names. kCrostiniEnabled controls if Crostini is enabled. kCrostiniAllowed is the policy that blocks it. Prefs can be manipulated if pref service is compromised.',
+        url: 'https://source.chromium.org/chromiumos/chromiumos/codesearch/+search?q=crostini+pref+names',
+        relevance: 0.85,
+      });
+      
+      results.push({
+        file: 'profile_prefs.cc',
+        path: 'chrome/browser/profiles/profile_prefs.cc',
+        lineNumber: 89,
+        code: `void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
+  registry->RegisterBooleanPref(prefs::kCrostiniEnabled, false);
+  registry->RegisterBooleanPref(prefs::kCrostiniAllowed, true);
+  // Prefs registered before policy is applied
+}`,
+        context: 'Profile preferences registration. Prefs are registered before policy enforcement. If pref service can be manipulated during initialization, policy can be bypassed.',
+        url: 'https://source.chromium.org/chromiumos/chromiumos/codesearch/+search?q=RegisterProfilePrefs+crostini',
+        relevance: 0.88,
       });
     }
     

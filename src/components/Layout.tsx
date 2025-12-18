@@ -33,26 +33,23 @@ export function Layout() {
           <div 
             className={`nav-link ${location.pathname === '/start' ? 'active' : ''}`}
             onClick={() => navigate('/start')}
+            title="Chat with AI to find exploits"
           >
-            Chat
+            🔍 Find Exploits
           </div>
           <div 
             className={`nav-link ${location.pathname === '/search' ? 'active' : ''}`}
             onClick={() => navigate('/search')}
+            title="Deep analysis and codebase scanning"
           >
-            Analysis
-          </div>
-          <div 
-            className={`nav-link ${location.pathname === '/exploit' ? 'active' : ''}`}
-            onClick={() => navigate('/exploit')}
-          >
-            Exploit
+            🔬 Deep Analysis
           </div>
           <div 
             className={`nav-link ${location.pathname === '/kajig' ? 'active' : ''}`}
             onClick={() => navigate('/kajig')}
+            title="Browse all found exploits"
           >
-            Kajig
+            📚 Exploit Library
           </div>
         </nav>
         <div className="nav-actions">

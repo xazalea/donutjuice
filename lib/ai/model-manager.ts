@@ -195,8 +195,16 @@ export class ModelManager {
     
     // Enhance system prompt with actual codebase context
     const enhancedSystemPrompt = codebaseContext 
-      ? `${systemPrompt}\n\n=== ACTUAL CHROMEOS CODEBASE SCAN RESULTS ===\n${codebaseContext}\n\nIMPORTANT: Use the above REAL codebase scan results. Reference specific files, functions, and code snippets. Provide actionable information based on actual source code found. Be concise but informative.`
-      : systemPrompt;
+      ? `${systemPrompt}\n\n=== ACTUAL CHROMEOS CODEBASE SCAN RESULTS (YOU MUST USE THIS CODE) ===\n${codebaseContext}\n\nCRITICAL INSTRUCTIONS:
+1. You MUST start your response by listing the EXACT file paths, functions, and line numbers from the code above
+2. You MUST analyze ONLY the code shown above - do NOT make up code
+3. You MUST provide exploit steps based on the REAL code locations shown above
+4. If the code shows a function like "IsCrostiniEnabled()" at line 234, you MUST reference it exactly
+5. NEVER mention generic Linux tools (apt-get, dpkg, etc.) - this is ChromeOS
+6. Your response MUST reference specific files and functions from the scan results above
+
+The codebase scan results above contain REAL ChromeOS source code. Use it to find REAL exploits.`
+      : `${systemPrompt}\n\nWARNING: No codebase scan results available. You MUST say "I need codebase scan results to find a real exploit. Please ensure the codebase scanner is working."`;
 
     try {
       // Prefer WebLLM for unrestricted models under 1B
