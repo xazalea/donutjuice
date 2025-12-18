@@ -12,16 +12,21 @@ export function SearchPage() {
   const [status, setStatus] = useState<'searching' | 'analyzing' | 'found' | 'retrying'>('searching')
   const [attempt, setAttempt] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  const addLog = (text: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
+    const prefix = type === 'success' ? '✓' : type === 'warning' ? '⚠' : type === 'error' ? '✗' : '→'
+    const logText = `${prefix} ${text}`
+    setLogs(prev => [...prev, logText])
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight
+    }
+  }
+
   const [exploitFinder] = useState(() => {
     const manager = new ModelManager();
     const finder = new PersistentExploitFinder(manager, (progress) => {
       setAttempt(progress.attempt);
       setStatus(progress.status);
-      const logMsg = `[Attempt ${progress.attempt}] ${progress.message}`;
-      setLogs(prev => [...prev, logMsg]);
-      if (containerRef.current) {
-        containerRef.current.scrollTop = containerRef.current.scrollHeight;
-      }
+      addLog(progress.message, 'info');
     });
     return finder;
   })
@@ -69,6 +74,7 @@ export function SearchPage() {
         setLogs(prev => [...prev, ''])
 
         // This will NEVER fail - keeps trying until it finds an exploit
+        addLog('Starting persistent exploit finder...', 'info');
         const exploitRecord = await exploitFinder.findExploit(userQuery)
 
         setLogs(prev => [...prev, ''])

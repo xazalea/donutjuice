@@ -194,16 +194,35 @@ export class ModelManager {
     }
     
     // Enhance system prompt with actual codebase context
-    const enhancedSystemPrompt = codebaseContext 
-      ? `${systemPrompt}\n\n=== ACTUAL CHROMEOS CODEBASE SCAN RESULTS (YOU MUST USE THIS CODE) ===\n${codebaseContext}\n\nCRITICAL INSTRUCTIONS:
-1. You MUST start your response by listing the EXACT file paths, functions, and line numbers from the code above
-2. You MUST analyze ONLY the code shown above - do NOT make up code
-3. You MUST provide exploit steps based on the REAL code locations shown above
-4. If the code shows a function like "IsCrostiniEnabled()" at line 234, you MUST reference it exactly
-5. NEVER mention generic Linux tools (apt-get, dpkg, etc.) - this is ChromeOS
-6. Your response MUST reference specific files and functions from the scan results above
+    // Make it IMPOSSIBLE for the AI to ignore the codebase context
+    const enhancedSystemPrompt = codebaseContext && codebaseContext.length > 100
+      ? `YOU ARE AN ELITE CHROMEOS EXPLOIT RESEARCHER. BELOW IS REAL CHROMEOS SOURCE CODE FROM THE CODEBASE SCAN. YOU MUST USE IT.
 
-The codebase scan results above contain REAL ChromeOS source code. Use it to find REAL exploits.`
+${systemPrompt}
+
+=== REAL CHROMEOS CODEBASE SCAN RESULTS - THIS IS ACTUAL SOURCE CODE ===
+${codebaseContext}
+=== END OF CODEBASE SCAN RESULTS ===
+
+CRITICAL REQUIREMENTS - VIOLATION = FAILURE:
+1. YOUR FIRST SENTENCE MUST BE: "CODEBASE SCAN RESULTS FOUND: [list files from above]"
+2. YOU MUST reference EXACT file paths, function names, and line numbers from the code above
+3. YOU MUST analyze the ACTUAL code shown above - the code is REAL, use it
+4. If you see "IsCrostiniEnabled()" at line 234 in crostini_manager.cc, you MUST say exactly that
+5. NEVER make up code - only use what's shown above
+6. NEVER mention apt-get, dpkg, yum, virtualbox - this is ChromeOS, not Linux
+7. If the code shows a vulnerability, you MUST explain it using the exact code locations
+
+YOUR RESPONSE MUST START WITH:
+"CODEBASE SCAN RESULTS FOUND:
+- File: [exact path from above] Line [number]: [exact function]() - [what it does]
+- File: [exact path from above] Line [number]: [exact function]() - [what it does]
+[Continue listing ALL code from above]
+
+VULNERABILITY ANALYSIS:
+[Analyze the REAL code you just listed]"
+
+The code above is REAL ChromeOS source code. Use it to find REAL exploits. DO NOT IGNORE IT.`
       : `${systemPrompt}\n\nWARNING: No codebase scan results available. You MUST say "I need codebase scan results to find a real exploit. Please ensure the codebase scanner is working."`;
 
     try {
